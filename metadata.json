@@ -1,0 +1,6 @@
+{
+  "name": "SHIFT: Trazo & Vacío",
+  "description": "Plataformas de puzles 2D sobre papel cuadriculado escolar con mecánicas asimétricas de cambio dimensional instantáneo entre grafito y vacío.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

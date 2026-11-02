@@ -1,0 +1,823 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Dimension, DrawnStroke, LevelData, PlayerState, StrokePoint } from './game/types.ts';
+import { LEVELS } from './game/levels.ts';
+import { GameRenderer } from './game/renderer.ts';
+import {
+  stepSimulation,
+  updateErasers,
+  updateInkDrops,
+  updateMovingPlatforms,
+  createDefaultPlayer,
+  InputState,
+} from './game/physics.ts';
+import { sound } from './game/audio.ts';
+import { TitleScreen } from './components/TitleScreen.tsx';
+import { GameHud } from './components/GameHud.tsx';
+import { PauseModal, VictoryModal, GameOverModal } from './components/Modals.tsx';
+import { TouchControls } from './components/TouchControls.tsx';
+
+type GameScreen = 'title' | 'playing' | 'paused' | 'victory' | 'gameover';
+
+export default function App() {
+  const [gameState, setGameState] = useState<GameScreen>('title');
+  const [currentLevelIdx, setCurrentLevelIdx] = useState<number>(0);
+  const [unlockedLevel, setUnlockedLevel] = useState<number>(() => {
+    const saved = localStorage.getItem('shift_unlocked_lvl');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+  const [highScores, setHighScores] = useState<Record<number, { stars: number; time: number }>>(() => {
+    const saved = localStorage.getItem('shift_high_scores');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  // Dual stickman & screen layout state
+  const [activeStickman, setActiveStickman] = useState<'BLACK' | 'WHITE'>('BLACK');
+  const [isScreenSwapped, setIsScreenSwapped] = useState<boolean>(false);
+  const [strokesCount, setStrokesCount] = useState<number>(0);
+
+  // HUD state (throttled to avoid 60fps React re-renders)
+  const [hudStars, setHudStars] = useState<number>(0);
+  const [hudTotalStars, setHudTotalStars] = useState<number>(0);
+  const [hudTime, setHudTime] = useState<number>(0);
+  const [isMuted, setIsMuted] = useState<boolean>(sound.getMuted());
+  const [deathReason, setDeathReason] = useState<string>('');
+
+  // End of run stats snapshot for modals
+  const [runStats, setRunStats] = useState({
+    time: 0,
+    stars: 0,
+    shifts: 0,
+  });
+
+  // Canvas & Simulation references
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rendererRef = useRef<GameRenderer | null>(null);
+
+  // Active level data deep copy ref
+  const currentLevelRef = useRef<LevelData>(JSON.parse(JSON.stringify(LEVELS[0])));
+
+  // The two stickmen:
+  // playerBlackRef: lives in WHITE world (Light mode, black stickman)
+  // playerWhiteRef: lives in BLACK world (Dark mode, white stickman)
+  const playerBlackRef = useRef<PlayerState>(createDefaultPlayer(80, 380, 'WHITE'));
+  const playerWhiteRef = useRef<PlayerState>(createDefaultPlayer(80, 380, 'BLACK'));
+
+  const activeStickmanRef = useRef<'BLACK' | 'WHITE'>('BLACK');
+  activeStickmanRef.current = activeStickman;
+
+  const isScreenSwappedRef = useRef<boolean>(false);
+  isScreenSwappedRef.current = isScreenSwapped;
+
+  // Drawn bridges & lines
+  const drawnStrokesRef = useRef<DrawnStroke[]>([]);
+  const currentDrawingRef = useRef<{
+    points: StrokePoint[];
+    targetDimension: Dimension;
+    color: string;
+  } | null>(null);
+
+  // Simulation counters & timers
+  const simTimeRef = useRef<number>(0);
+  const shiftsCountRef = useRef<number>(0);
+  const lastHudUpdateRef = useRef<number>(0);
+  const hitstopTimerRef = useRef<number>(0);
+
+  // Unified input hub
+  const inputRef = useRef<InputState>({
+    left: false,
+    right: false,
+    jumpPressed: false,
+    jumpHeld: false,
+    shiftPressed: false,
+  });
+
+  const gameStateRef = useRef<GameScreen>('title');
+  gameStateRef.current = gameState;
+
+  // Sync document.body.dataset.state
+  useEffect(() => {
+    const mapped =
+      gameState === 'victory' || gameState === 'gameover' ? 'gameover' : gameState;
+    document.body.dataset.state = mapped;
+  }, [gameState]);
+
+  // Load level into simulation refs
+  const loadLevel = useCallback((levelIdx: number) => {
+    const safeIdx = Math.min(Math.max(0, levelIdx), LEVELS.length - 1);
+    setCurrentLevelIdx(safeIdx);
+    const lvlCopy: LevelData = JSON.parse(JSON.stringify(LEVELS[safeIdx]));
+    currentLevelRef.current = lvlCopy;
+
+    playerBlackRef.current = createDefaultPlayer(lvlCopy.spawn.x, lvlCopy.spawn.y, 'WHITE');
+    playerWhiteRef.current = createDefaultPlayer(lvlCopy.spawn.x, lvlCopy.spawn.y, 'BLACK');
+
+    drawnStrokesRef.current = [];
+    currentDrawingRef.current = null;
+    setStrokesCount(0);
+
+    setActiveStickman('BLACK');
+    setIsScreenSwapped(false);
+    activeStickmanRef.current = 'BLACK';
+    isScreenSwappedRef.current = false;
+
+    simTimeRef.current = 0;
+    shiftsCountRef.current = 0;
+    hitstopTimerRef.current = 0;
+
+    setHudStars(0);
+    setHudTotalStars(lvlCopy.stars.length);
+    setHudTime(0);
+    setDeathReason('');
+  }, []);
+
+  // Start game handler
+  const startGame = useCallback((levelIdx?: number) => {
+    const idx = levelIdx !== undefined ? levelIdx : currentLevelIdx;
+    loadLevel(idx);
+    setGameState('playing');
+    inputRef.current = {
+      left: false,
+      right: false,
+      jumpPressed: false,
+      jumpHeld: false,
+      shiftPressed: false,
+    };
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }, [currentLevelIdx, loadLevel]);
+
+  // Restart current level
+  const restartLevel = useCallback(() => {
+    loadLevel(currentLevelIdx);
+    setGameState('playing');
+    inputRef.current = {
+      left: false,
+      right: false,
+      jumpPressed: false,
+      jumpHeld: false,
+      shiftPressed: false,
+    };
+  }, [currentLevelIdx, loadLevel]);
+
+  // Dimension & Screen Swap Trigger
+  // "al precionar shit la parte de abajo pasa arriba y viceversa y se van manejando ambos stickman"
+  const triggerDimensionShift = useCallback(() => {
+    if (gameStateRef.current !== 'playing') return;
+
+    sound.playShift();
+    shiftsCountRef.current += 1;
+
+    const nextSwapped = !isScreenSwappedRef.current;
+    const nextActive: 'BLACK' | 'WHITE' = activeStickmanRef.current === 'BLACK' ? 'WHITE' : 'BLACK';
+
+    setIsScreenSwapped(nextSwapped);
+    setActiveStickman(nextActive);
+    isScreenSwappedRef.current = nextSwapped;
+    activeStickmanRef.current = nextActive;
+
+    if (rendererRef.current) {
+      rendererRef.current.triggerShift(nextSwapped);
+    }
+  }, []);
+
+  // Clear drawn bridges
+  const clearDrawnStrokes = useCallback(() => {
+    drawnStrokesRef.current = [];
+    setStrokesCount(0);
+  }, []);
+
+  // Advance to next level
+  const nextLevel = useCallback(() => {
+    if (currentLevelIdx < LEVELS.length - 1) {
+      const nextIdx = currentLevelIdx + 1;
+      setUnlockedLevel((prev) => {
+        const updated = Math.max(prev, nextIdx);
+        localStorage.setItem('shift_unlocked_lvl', String(updated));
+        return updated;
+      });
+      loadLevel(nextIdx);
+      setGameState('playing');
+    } else {
+      setGameState('title');
+    }
+  }, [currentLevelIdx, loadLevel]);
+
+  // Autostart query parameter support (?autostart=1)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autostart') === '1') {
+      startGame(0);
+    }
+  }, [startGame]);
+
+  // Keyboard Event Listeners
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Audio toggle
+      if (e.code === 'KeyM') {
+        const muted = sound.toggleMute();
+        setIsMuted(muted);
+        return;
+      }
+
+      // Clear strokes quick key
+      if (e.code === 'KeyC') {
+        clearDrawnStrokes();
+        return;
+      }
+
+      // Title screen quick start
+      if (gameStateRef.current === 'title') {
+        if (e.code === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          startGame();
+          return;
+        }
+      }
+
+      // Victory screen next level
+      if (gameStateRef.current === 'victory') {
+        if (e.code === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          nextLevel();
+          return;
+        }
+      }
+
+      // Game Over retry
+      if (gameStateRef.current === 'gameover') {
+        if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyR') {
+          e.preventDefault();
+          restartLevel();
+          return;
+        }
+      }
+
+      // Pause toggle
+      if (e.code === 'Escape' || e.code === 'KeyP') {
+        if (gameStateRef.current === 'playing') {
+          setGameState('paused');
+          return;
+        } else if (gameStateRef.current === 'paused') {
+          setGameState('playing');
+          return;
+        }
+      }
+
+      // Restart quick key
+      if (e.code === 'KeyR' && gameStateRef.current === 'playing') {
+        restartLevel();
+        return;
+      }
+
+      // Gameplay active inputs
+      if (gameStateRef.current === 'playing') {
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+          inputRef.current.left = true;
+        }
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+          inputRef.current.right = true;
+        }
+        if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') {
+          if (!inputRef.current.jumpHeld) {
+            inputRef.current.jumpPressed = true;
+          }
+          inputRef.current.jumpHeld = true;
+        }
+        // Dimension / Screen swap: Shift, KeyZ, KeyK, KeyE, KeyJ
+        if (
+          e.code === 'ShiftLeft' ||
+          e.code === 'ShiftRight' ||
+          e.code === 'KeyZ' ||
+          e.code === 'KeyK' ||
+          e.code === 'KeyE' ||
+          e.code === 'KeyJ'
+        ) {
+          e.preventDefault();
+          triggerDimensionShift();
+        }
+      }
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        inputRef.current.left = false;
+      }
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        inputRef.current.right = false;
+      }
+      if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') {
+        inputRef.current.jumpHeld = false;
+      }
+    };
+
+    const onBlur = () => {
+      inputRef.current = {
+        left: false,
+        right: false,
+        jumpPressed: false,
+        jumpHeld: false,
+        shiftPressed: false,
+      };
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onBlur);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onBlur);
+    };
+  }, [startGame, restartLevel, nextLevel, triggerDimensionShift, clearDrawnStrokes]);
+
+  // Touch control handlers
+  const handleTouchStart = (action: 'left' | 'right' | 'jump' | 'shift') => {
+    if (action === 'left') inputRef.current.left = true;
+    if (action === 'right') inputRef.current.right = true;
+    if (action === 'jump') {
+      inputRef.current.jumpPressed = true;
+      inputRef.current.jumpHeld = true;
+    }
+    if (action === 'shift') {
+      triggerDimensionShift();
+    }
+  };
+
+  const handleTouchEnd = (action: 'left' | 'right' | 'jump' | 'shift') => {
+    if (action === 'left') inputRef.current.left = false;
+    if (action === 'right') inputRef.current.right = false;
+    if (action === 'jump') inputRef.current.jumpHeld = false;
+  };
+
+  // Canvas size ref
+  const canvasSizeRef = useRef({ w: 960, h: 540, dpr: 1 });
+
+  // Measure canvas size via ResizeObserver
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const updateSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.round(rect.width) || 960;
+      const h = Math.round(rect.height) || 540;
+      canvasSizeRef.current = { w, h, dpr };
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+      }
+    };
+
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(canvas);
+    window.addEventListener('resize', updateSize);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, []);
+
+  // Interactive Drawing Handlers (Mouse / Touch)
+  // "tambien deben dibujar ayudas para el otro pero su trazo es invisible en su mundo"
+  const isDrawingRef = useRef<boolean>(false);
+
+  const getCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * canvasSizeRef.current.w;
+    const py = ((e.clientY - rect.top) / rect.height) * canvasSizeRef.current.h;
+    return { px, py };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (gameStateRef.current !== 'playing') return;
+    const coords = getCanvasCoords(e);
+    if (!coords) return;
+    const { px, py } = coords;
+
+    const canvasH = canvasSizeRef.current.h;
+    const halfH = canvasH / 2;
+    const isTopHalf = py < halfH;
+
+    // Determine which world this pointer began in
+    // If isScreenSwapped is false: Top = WHITE, Bottom = BLACK
+    // If isScreenSwapped is true: Top = BLACK, Bottom = WHITE
+    const clickedWorld: Dimension = isScreenSwappedRef.current
+      ? (isTopHalf ? 'BLACK' : 'WHITE')
+      : (isTopHalf ? 'WHITE' : 'BLACK');
+
+    // Asymmetry drawing rule:
+    // When drawn in WHITE world, target is BLACK world (solid in BLACK, invisible in WHITE).
+    // When drawn in BLACK world, target is WHITE world (solid in WHITE, invisible in BLACK).
+    const targetDimension: Dimension = clickedWorld === 'WHITE' ? 'BLACK' : 'WHITE';
+
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+
+    const transform = isTopHalf ? renderer.lastTopTransform : renderer.lastBottomTransform;
+    const gx = (px - transform.offsetX) / transform.scale;
+    const gy = (py - transform.viewportY - transform.offsetY) / transform.scale;
+
+    isDrawingRef.current = true;
+    currentDrawingRef.current = {
+      points: [{ x: gx, y: gy }],
+      targetDimension,
+      color: targetDimension === 'WHITE' ? '#0f172a' : '#ffffff',
+    };
+
+    if (e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current || !currentDrawingRef.current) return;
+    const coords = getCanvasCoords(e);
+    if (!coords) return;
+    const { px, py } = coords;
+
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+
+    const canvasH = canvasSizeRef.current.h;
+    const halfH = canvasH / 2;
+    const isTopHalf = py < halfH;
+    const transform = isTopHalf ? renderer.lastTopTransform : renderer.lastBottomTransform;
+
+    const gx = (px - transform.offsetX) / transform.scale;
+    const gy = (py - transform.viewportY - transform.offsetY) / transform.scale;
+
+    const pts = currentDrawingRef.current.points;
+    const lastPt = pts[pts.length - 1];
+    const distSq = (gx - lastPt.x) ** 2 + (gy - lastPt.y) ** 2;
+
+    // Sample points when moving at least 8 pixels
+    if (distSq > 64) {
+      pts.push({ x: gx, y: gy });
+      renderer.spawnParticles(
+        gx,
+        gy,
+        2,
+        'drawn_sparkle',
+        currentDrawingRef.current.color,
+        'ALL'
+      );
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+
+    if (currentDrawingRef.current && currentDrawingRef.current.points.length >= 2) {
+      const newStroke: DrawnStroke = {
+        id: `stroke_${Date.now()}_${Math.random()}`,
+        points: currentDrawingRef.current.points,
+        targetDimension: currentDrawingRef.current.targetDimension,
+        color: currentDrawingRef.current.color,
+        createdAt: Date.now(),
+      };
+
+      // Keep up to 8 active bridges to keep memory clean
+      drawnStrokesRef.current.push(newStroke);
+      if (drawnStrokesRef.current.length > 8) {
+        drawnStrokesRef.current.shift();
+      }
+      setStrokesCount(drawnStrokesRef.current.length);
+      sound.playDraw();
+    }
+    currentDrawingRef.current = null;
+  };
+
+  // Main 60fps Canvas Simulation Loop
+  useEffect(() => {
+    rendererRef.current = new GameRenderer();
+    let animationFrameId: number;
+    let lastTime = performance.now();
+
+    const loop = (currentTime: number) => {
+      animationFrameId = requestAnimationFrame(loop);
+
+      const rawDt = (currentTime - lastTime) / 1000;
+      lastTime = currentTime;
+      const dt = Math.min(rawDt, 0.05);
+
+      const canvas = canvasRef.current;
+      const renderer = rendererRef.current;
+      if (!canvas || !renderer) return;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const { w: displayW, h: displayH, dpr } = canvasSizeRef.current;
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+
+      const level = currentLevelRef.current;
+      const playerBlack = playerBlackRef.current;
+      const playerWhite = playerWhiteRef.current;
+
+      // Simulation Step (Only active during 'playing')
+      if (gameStateRef.current === 'playing') {
+        if (hitstopTimerRef.current > 0) {
+          hitstopTimerRef.current -= dt;
+        } else {
+          simTimeRef.current += dt;
+
+          // Update moving platforms, erasers, ink drops
+          updateMovingPlatforms(level.platforms, dt);
+          updateErasers(level.erasers, dt);
+          updateInkDrops(level.inkDrops, level.platforms, level.height, dt);
+
+          // Route player input to active stickman
+          const isBlackActive = activeStickmanRef.current === 'BLACK';
+          const blackInput: InputState = isBlackActive
+            ? inputRef.current
+            : { left: false, right: false, jumpPressed: false, jumpHeld: false, shiftPressed: false };
+          const whiteInput: InputState = !isBlackActive
+            ? inputRef.current
+            : { left: false, right: false, jumpPressed: false, jumpHeld: false, shiftPressed: false };
+
+          // Step Black stickman (in WHITE world)
+          const resultBlack = stepSimulation(
+            playerBlack,
+            blackInput,
+            level.platforms,
+            level.spikes,
+            level.erasers,
+            level.inkDrops,
+            level.stars,
+            level.goal,
+            level.width,
+            level.height,
+            dt,
+            drawnStrokesRef.current
+          );
+
+          // Step White stickman (in BLACK world)
+          const resultWhite = stepSimulation(
+            playerWhite,
+            whiteInput,
+            level.platforms,
+            level.spikes,
+            level.erasers,
+            level.inkDrops,
+            level.stars,
+            level.goal,
+            level.width,
+            level.height,
+            dt,
+            drawnStrokesRef.current
+          );
+
+          // Audio triggers
+          if (resultBlack.didJump || resultWhite.didJump) {
+            sound.playJump();
+            const jumpingPlayer = resultBlack.didJump ? playerBlack : playerWhite;
+            renderer.spawnParticles(
+              jumpingPlayer.x + jumpingPlayer.w * 0.5,
+              jumpingPlayer.y + jumpingPlayer.h,
+              6,
+              jumpingPlayer.currentDimension === 'WHITE' ? 'pencil' : 'chalk',
+              jumpingPlayer.currentDimension === 'WHITE' ? '#334155' : '#ffffff',
+              jumpingPlayer.currentDimension
+            );
+          }
+
+          if (resultBlack.didLand || resultWhite.didLand) {
+            sound.playLand();
+          }
+
+          if (resultBlack.collectedStars.length > 0 || resultWhite.collectedStars.length > 0) {
+            sound.playStar();
+            const p = resultBlack.collectedStars.length > 0 ? playerBlack : playerWhite;
+            renderer.spawnParticles(
+              p.x + p.w * 0.5,
+              p.y + p.h * 0.5,
+              12,
+              'star_spark',
+              '#f59e0b',
+              'ALL'
+            );
+          }
+
+          // Player Death check
+          if (playerBlack.isDead || playerWhite.isDead) {
+            const deadPlayer = playerBlack.isDead ? playerBlack : playerWhite;
+            sound.playDeath(deadPlayer.deathReason);
+            hitstopTimerRef.current = 0.08;
+            renderer.cameraShake = 14;
+            renderer.spawnParticles(
+              deadPlayer.x + deadPlayer.w * 0.5,
+              deadPlayer.y + deadPlayer.h * 0.5,
+              24,
+              'eraser_crumb',
+              deadPlayer.currentDimension === 'WHITE' ? '#ef4444' : '#38bdf8',
+              'ALL'
+            );
+            setDeathReason(
+              `${deadPlayer.currentDimension === 'WHITE' ? 'Stickman Negro' : 'Stickman Blanco'}: ${
+                deadPlayer.deathReason || 'Eliminado'
+              }`
+            );
+            setRunStats({
+              time: simTimeRef.current,
+              stars: level.stars.filter((s) => s.collected).length,
+              shifts: shiftsCountRef.current,
+            });
+            setTimeout(() => {
+              setGameState('gameover');
+            }, 350);
+          }
+
+          // Level Victory check (either stickman reaches goal, or cooperative victory!)
+          if (resultBlack.clearedLevel || resultWhite.clearedLevel) {
+            sound.playVictory();
+            renderer.spawnParticles(
+              level.goal.x + level.goal.w * 0.5,
+              level.goal.y + level.goal.h * 0.5,
+              30,
+              'star_spark',
+              '#dc2626',
+              'ALL'
+            );
+            const starsWon = level.stars.filter((s) => s.collected).length;
+            setRunStats({
+              time: simTimeRef.current,
+              stars: starsWon,
+              shifts: shiftsCountRef.current,
+            });
+
+            // Save High Score
+            setHighScores((prev) => {
+              const currentBest = prev[currentLevelIdx];
+              if (
+                !currentBest ||
+                starsWon > currentBest.stars ||
+                (starsWon === currentBest.stars && simTimeRef.current < currentBest.time)
+              ) {
+                const nextScores = {
+                  ...prev,
+                  [currentLevelIdx]: { stars: starsWon, time: simTimeRef.current },
+                };
+                localStorage.setItem('shift_high_scores', JSON.stringify(nextScores));
+                return nextScores;
+              }
+              return prev;
+            });
+
+            setTimeout(() => {
+              setGameState('victory');
+            }, 300);
+          }
+
+          // Throttle React HUD updates to 5 times/sec
+          if (currentTime - lastHudUpdateRef.current > 200) {
+            lastHudUpdateRef.current = currentTime;
+            setHudTime(simTimeRef.current);
+            setHudStars(level.stars.filter((s) => s.collected).length);
+          }
+        }
+      }
+
+      // Reset one-shot edge triggers
+      inputRef.current.jumpPressed = false;
+      inputRef.current.shiftPressed = false;
+
+      // Update renderer particles & shake
+      renderer.update(dt);
+
+      // Render the Dual Vertical Split Screen
+      renderer.renderDualWorld(
+        ctx,
+        displayW,
+        displayH,
+        level.width,
+        level.height,
+        playerBlack,
+        playerWhite,
+        activeStickmanRef.current,
+        isScreenSwappedRef.current,
+        level.platforms,
+        level.spikes,
+        level.erasers,
+        level.inkDrops,
+        level.stars,
+        level.goal,
+        level.title,
+        drawnStrokesRef.current,
+        currentDrawingRef.current,
+        currentTime / 1000
+      );
+
+      ctx.restore();
+    };
+
+    animationFrameId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [currentLevelIdx]);
+
+  const currentLevel = currentLevelRef.current;
+  const isLastLevel = currentLevelIdx === LEVELS.length - 1;
+
+  return (
+    <div className="relative w-screen h-screen overflow-hidden bg-[#101216] select-none flex items-center justify-center">
+      {/* 60fps HTML5 Canvas Split-Screen Surface */}
+      <canvas
+        ref={canvasRef}
+        data-testid="game-canvas"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="w-full h-full block touch-none cursor-crosshair"
+      />
+
+      {/* Screen: Title Screen */}
+      {gameState === 'title' && (
+        <div className="absolute inset-0 z-40">
+          <TitleScreen
+            onStart={startGame}
+            unlockedLevel={unlockedLevel}
+            highScores={highScores}
+          />
+        </div>
+      )}
+
+      {/* Playing HUD (Active during gameplay & pause) */}
+      {(gameState === 'playing' || gameState === 'paused') && (
+        <GameHud
+          levelTitle={currentLevel.title}
+          levelSubtitle={currentLevel.subtitle}
+          activeStickman={activeStickman}
+          isScreenSwapped={isScreenSwapped}
+          starsCollected={hudStars}
+          totalStars={hudTotalStars}
+          timeSeconds={hudTime}
+          strokesCount={strokesCount}
+          isMuted={isMuted}
+          onToggleMute={() => {
+            const muted = sound.toggleMute();
+            setIsMuted(muted);
+          }}
+          onRestart={restartLevel}
+          onPause={() => setGameState('paused')}
+          onShift={triggerDimensionShift}
+          onClearStrokes={clearDrawnStrokes}
+        />
+      )}
+
+      {/* Touch Controls (Mobile / Tablet) */}
+      {gameState === 'playing' && (
+        <TouchControls
+          onInputStart={handleTouchStart}
+          onInputEnd={handleTouchEnd}
+        />
+      )}
+
+      {/* Modal: Pause */}
+      {gameState === 'paused' && (
+        <PauseModal
+          onResume={() => setGameState('playing')}
+          onRestart={restartLevel}
+          onTitle={() => setGameState('title')}
+        />
+      )}
+
+      {/* Modal: Victory / Stage Clear */}
+      {gameState === 'victory' && (
+        <VictoryModal
+          levelTitle={currentLevel.title}
+          isLastLevel={isLastLevel}
+          timeSeconds={runStats.time}
+          starsCollected={runStats.stars}
+          totalStars={hudTotalStars}
+          shiftsUsed={runStats.shifts}
+          onNextLevel={nextLevel}
+          onReplay={restartLevel}
+          onTitle={() => setGameState('title')}
+        />
+      )}
+
+      {/* Modal: Game Over / Defeat */}
+      {gameState === 'gameover' && (
+        <GameOverModal
+          levelTitle={currentLevel.title}
+          deathReason={deathReason}
+          onRetry={restartLevel}
+          onTitle={() => setGameState('title')}
+        />
+      )}
+    </div>
+  );
+}
