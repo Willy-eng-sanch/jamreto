@@ -66,6 +66,11 @@ test('Asymmetry rule: platforms are only solid in their designated dimension', (
   assert.equal(isPlatformPhysical(bothPlatform, 'BLACK'), true);
 });
 
+test('hazards marked BOTH are physical in both dimensions', () => {
+  assert.equal(isHazardPhysical({ physicalIn: 'BOTH' }, 'WHITE'), true);
+  assert.equal(isHazardPhysical({ physicalIn: 'BOTH' }, 'BLACK'), true);
+});
+
 test('Asymmetry rule: hazards kill player ONLY in their physical dimension, otherwise intangible mirage', () => {
   const spike: Spike = { id: 's1', x: 100, y: 100, w: 24, h: 24, physicalIn: 'WHITE' };
   const goal: Goal = { id: 'goal', x: 900, y: 900, w: 30, h: 30 };
