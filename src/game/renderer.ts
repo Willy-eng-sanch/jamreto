@@ -1048,7 +1048,8 @@ export class GameRenderer {
     start: { x: number; y: number },
     end: { x: number; y: number },
     dimension: Dimension,
-    sourceAngle = -Math.PI / 4
+    sourceAngle = -Math.PI / 4,
+    sourceSpan = 0.82
   ): void {
     const dx = end.x - start.x;
     const dy = end.y - start.y;
@@ -1057,7 +1058,7 @@ export class GameRenderer {
 
     // The authored links are drawn diagonally inside their 64x64 cells.
     // Rotate that artwork so its two drawn pin-holes meet the rig pivots.
-    const size = length / 0.82;
+    const size = length / sourceSpan;
     const centerX = (start.x + end.x) * 0.5;
     const centerY = (start.y + end.y) * 0.5;
     const targetAngle = Math.atan2(dy, dx);
@@ -1132,7 +1133,7 @@ export class GameRenderer {
     // Legs are drawn behind the torso.
     for (const leg of legs) {
       this.drawRigSegment(ctx, 'upperLeg', leg.hip, leg.knee, dimension);
-      this.drawRigSegment(ctx, 'lowerLeg', leg.knee, leg.ankle, dimension, Math.PI / 2);
+      this.drawRigSegment(ctx, 'lowerLeg', leg.knee, leg.ankle, dimension, Math.PI / 2, 0.58);
       const footWidth = 9;
       const footHeight = 7;
       this.drawHanddrawnSprite(
@@ -1194,7 +1195,7 @@ export class GameRenderer {
     );
     this.drawRigJoint(ctx, { x: 0, y: hipY }, dimension, 3.8);
 
-    const headY = shoulderY - 10;
+    const headY = shoulderY - 7;
     this.drawHanddrawnSprite(
       ctx,
       'orb',
