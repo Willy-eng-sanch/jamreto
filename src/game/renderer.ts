@@ -14,6 +14,22 @@ import {
 
 const MAX_PARTICLES = 200;
 
+type HanddrawnSpriteName =
+  | 'orb'
+  | 'triangle'
+  | 'stars'
+  | 'lightbulb'
+  | 'horizontalLine';
+
+const HANDDRAWN_SPRITE_TILE_SIZE = 64;
+const HANDDRAWN_SPRITES: Record<HanddrawnSpriteName, { col: number; row: number }> = {
+  orb: { col: 0, row: 0 },
+  triangle: { col: 4, row: 1 },
+  stars: { col: 2, row: 2 },
+  lightbulb: { col: 3, row: 2 },
+  horizontalLine: { col: 4, row: 3 },
+};
+
 export interface ViewportTransform {
   scale: number;
   offsetX: number;
@@ -25,6 +41,7 @@ export interface ViewportTransform {
 
 export class GameRenderer {
   private particles: Particle[] = [];
+  private handdrawnAtlas: HTMLImageElement | null = null;
   private particleIndex = 0;
   public cameraShake = 0;
   private swapAnimProgress = 0; // 0 to 1 smooth flip
@@ -33,6 +50,10 @@ export class GameRenderer {
   public lastBottomTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportY: 270, viewportH: 270, viewportW: 960 };
 
   constructor() {
+    const atlas = new Image();
+    atlas.src = '/assets/sprites/handdrawn-atlas.png';
+    this.handdrawnAtlas = atlas;
+
     for (let i = 0; i < MAX_PARTICLES; i++) {
       this.particles.push({
         x: 0,
@@ -47,6 +68,55 @@ export class GameRenderer {
         type: 'pencil',
       });
     }
+  }
+
+  private drawHanddrawnSprite(
+    ctx: CanvasRenderingContext2D,
+    sprite: HanddrawnSpriteName,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    dimension: Dimension,
+    rotation = 0
+  ): boolean {
+    const atlas = this.handdrawnAtlas;
+    if (!atlas || !atlas.complete || atlas.naturalWidth === 0) return false;
+
+    const frame = HANDDRAWN_SPRITES[sprite];
+    const tile = HANDDRAWN_SPRITE_TILE_SIZE;
+
+    ctx.save();
+    ctx.filter = dimension === 'BLACK' ? 'invert(1)' : 'none';
+    if (rotation !== 0) {
+      ctx.translate(x + width * 0.5, y + height * 0.5);
+      ctx.rotate(rotation);
+      ctx.drawImage(
+        atlas,
+        frame.col * tile,
+        frame.row * tile,
+        tile,
+        tile,
+        -width * 0.5,
+        -height * 0.5,
+        width,
+        height
+      );
+    } else {
+      ctx.drawImage(
+        atlas,
+        frame.col * tile,
+        frame.row * tile,
+        tile,
+        tile,
+        x,
+        y,
+        width,
+        height
+      );
+    }
+    ctx.restore();
+    return true;
   }
 
   public triggerShift(isSwapped: boolean): void {
@@ -614,7 +684,28 @@ export class GameRenderer {
         ctx.strokeStyle = isWhite ? '#0f172a' : '#ffffff';
         ctx.fillStyle = isWhite ? 'rgba(15, 23, 42, 0.18)' : 'rgba(255, 255, 255, 0.22)';
         ctx.lineWidth = 2.2;
-        this.drawSpikeShape(ctx, spike.x, spike.y, spike.w, spike.h, time);
+
+        const spikeCount = Math.max(1, Math.floor(spike.w / 20));
+        const spikeStep = spike.w / spikeCount;
+        let spritesReady = true;
+        for (let i = 0; i < spikeCount; i++) {
+          const centerX = spike.x + i * spikeStep + spikeStep * 0.5;
+          const centerY = spike.y + spike.h * 0.5;
+          const drawn = this.drawHanddrawnSprite(
+            ctx,
+            'triangle',
+            centerX - spike.h * 0.5,
+            centerY - spikeStep * 0.5,
+            spike.h,
+            spikeStep,
+            worldDimension,
+            -Math.PI * 0.5
+          );
+          if (!drawn) spritesReady = false;
+        }
+        if (!spritesReady) {
+          this.drawSpikeShape(ctx, spike.x, spike.y, spike.w, spike.h, time);
+        }
 
         // Warning cue on the visible mirage
         ctx.fillStyle = isWhite ? '#ef4444' : '#f87171';
@@ -685,15 +776,28 @@ export class GameRenderer {
           ctx.arc(drop.x, drop.y, drop.radius, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // Visible mirage drop
-          ctx.fillStyle = isWhite ? '#0f172a' : '#38bdf8';
-          ctx.beginPath();
-          ctx.arc(drop.x, drop.y, drop.radius, 0, Math.PI * 2);
-          ctx.fill();
+          // Visible mirage drop uses the hand-drawn orb; keep the vector
+          // fallback for the brief period before the atlas finishes loading.
+          const orbSize = drop.radius * 3;
+          const drawn = this.drawHanddrawnSprite(
+            ctx,
+            'orb',
+            drop.x - orbSize * 0.5,
+            drop.y - orbSize * 0.5,
+            orbSize,
+            orbSize,
+            worldDimension
+          );
+          if (!drawn) {
+            ctx.fillStyle = isWhite ? '#0f172a' : '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(drop.x, drop.y, drop.radius, 0, Math.PI * 2);
+            ctx.fill();
 
-          ctx.strokeStyle = isWhite ? '#334155' : '#ffffff';
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
+            ctx.strokeStyle = isWhite ? '#334155' : '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
         }
       }
       ctx.restore();
@@ -755,6 +859,17 @@ export class GameRenderer {
       ctx.lineTo(tx, y + 10);
     }
     ctx.stroke();
+
+    const platformDimension: Dimension = color === '#f8fafc' ? 'BLACK' : 'WHITE';
+    this.drawHanddrawnSprite(
+      ctx,
+      'horizontalLine',
+      x,
+      y - 3,
+      w,
+      9,
+      platformDimension
+    );
   }
 
   private drawScribbleBlock(
@@ -793,14 +908,26 @@ export class GameRenderer {
       ctx.save();
       const cx = star.x + star.w * 0.5;
       const cy = star.y + star.h * 0.5 + Math.sin(time * 3 + star.x) * 3;
+      const spriteSize = Math.max(star.w, star.h) * 1.9;
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.strokeStyle = '#d97706';
-      ctx.lineWidth = 1.5;
+      const drawn = this.drawHanddrawnSprite(
+        ctx,
+        'stars',
+        cx - spriteSize * 0.5,
+        cy - spriteSize * 0.5,
+        spriteSize,
+        spriteSize,
+        dimension
+      );
 
-      this.drawStarShape(ctx, cx, cy, 5, star.w * 0.5, star.w * 0.22);
-      ctx.fill();
-      ctx.stroke();
+      if (!drawn) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 1.5;
+        this.drawStarShape(ctx, cx, cy, 5, star.w * 0.5, star.w * 0.22);
+        ctx.fill();
+        ctx.stroke();
+      }
       ctx.restore();
     }
   }
@@ -844,6 +971,7 @@ export class GameRenderer {
     ctx.save();
     const cx = goal.x + goal.w * 0.5;
     const cy = goal.y + goal.h * 0.5;
+    const dimension: Dimension = isWhite ? 'WHITE' : 'BLACK';
 
     const stampColor = isWhite ? '#dc2626' : '#f87171';
     ctx.strokeStyle = stampColor;
@@ -861,13 +989,30 @@ export class GameRenderer {
     ctx.stroke();
     ctx.setLineDash([]);
 
+    const iconWidth = goal.w * 0.92;
+    const iconHeight = goal.h * 0.78;
+    const drawn = this.drawHanddrawnSprite(
+      ctx,
+      'lightbulb',
+      cx - iconWidth * 0.5,
+      cy - iconHeight * 0.53,
+      iconWidth,
+      iconHeight,
+      dimension
+    );
+
     ctx.fillStyle = stampColor;
-    ctx.font = 'bold 10px ui-monospace, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('10/10', cx, cy - 8);
-    ctx.font = 'bold 8px ui-monospace, monospace';
-    ctx.fillText('SELLO', cx, cy + 6);
+    if (drawn) {
+      ctx.font = 'bold 7px ui-monospace, monospace';
+      ctx.fillText('META', cx, goal.y + goal.h - 3);
+    } else {
+      ctx.font = 'bold 10px ui-monospace, monospace';
+      ctx.fillText('10/10', cx, cy - 8);
+      ctx.font = 'bold 8px ui-monospace, monospace';
+      ctx.fillText('SELLO', cx, cy + 6);
+    }
 
     ctx.restore();
   }
