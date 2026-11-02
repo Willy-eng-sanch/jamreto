@@ -1132,12 +1132,12 @@ export class GameRenderer {
     const falling = !player.isGrounded && player.vy > 100;
 
     const leftArm = {
-      shoulder: { x: -3.5, y: shoulderY + 2 },
+      shoulder: { x: -3.5, y: shoulderY + 5 },
       elbow: { x: -9.5, y: shoulderY + 8 },
       wrist: { x: -12, y: shoulderY + 16 },
     };
     const rightArm = {
-      shoulder: { x: 3.5, y: shoulderY + 2 },
+      shoulder: { x: 3.5, y: shoulderY + 5 },
       elbow: { x: 9.5, y: shoulderY + 8 },
       wrist: { x: 12, y: shoulderY + 16 },
     };
@@ -1183,7 +1183,7 @@ export class GameRenderer {
     // Legs are drawn behind the torso.
     for (const leg of legs) {
       this.drawRigSegment(ctx, 'upperLeg', leg.hip, leg.knee, dimension);
-      this.drawRigSegment(ctx, 'lowerLeg', leg.knee, leg.ankle, dimension, -Math.PI / 2);
+      this.drawRigSegment(ctx, 'lowerLeg', leg.knee, leg.ankle, dimension, Math.PI / 2);
       const footWidth = 9;
       const footHeight = 7;
       this.drawHanddrawnSprite(
