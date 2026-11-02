@@ -1,0 +1,204 @@
+{
+  "source": "spritesheet (1).png",
+  "atlas": "handdrawn-atlas.png",
+  "tileSize": 64,
+  "columns": 5,
+  "rows": 5,
+  "background": "transparent",
+  "colorMode": "black graphite; invert for dark world",
+  "note": "Names are provisional visual labels. Handwritten x2 quantity notes and paper grid were removed during extraction.",
+  "sprites": {
+    "orb": {
+      "col": 0,
+      "row": 0,
+      "x": 0,
+      "y": 0,
+      "w": 64,
+      "h": 64
+    },
+    "tapered_piece": {
+      "col": 1,
+      "row": 0,
+      "x": 64,
+      "y": 0,
+      "w": 64,
+      "h": 64
+    },
+    "triangular_piece": {
+      "col": 2,
+      "row": 0,
+      "x": 128,
+      "y": 0,
+      "w": 64,
+      "h": 64
+    },
+    "capsule_diagonal_a": {
+      "col": 3,
+      "row": 0,
+      "x": 192,
+      "y": 0,
+      "w": 64,
+      "h": 64
+    },
+    "capsule_diagonal_b": {
+      "col": 4,
+      "row": 0,
+      "x": 256,
+      "y": 0,
+      "w": 64,
+      "h": 64
+    },
+    "capsule_diagonal_c": {
+      "col": 0,
+      "row": 1,
+      "x": 0,
+      "y": 64,
+      "w": 64,
+      "h": 64
+    },
+    "capsule_vertical": {
+      "col": 1,
+      "row": 1,
+      "x": 64,
+      "y": 64,
+      "w": 64,
+      "h": 64
+    },
+    "capsule_small": {
+      "col": 2,
+      "row": 1,
+      "x": 128,
+      "y": 64,
+      "w": 64,
+      "h": 64
+    },
+    "ring": {
+      "col": 3,
+      "row": 1,
+      "x": 192,
+      "y": 64,
+      "w": 64,
+      "h": 64
+    },
+    "triangle": {
+      "col": 4,
+      "row": 1,
+      "x": 256,
+      "y": 64,
+      "w": 64,
+      "h": 64
+    },
+    "hand": {
+      "col": 0,
+      "row": 2,
+      "x": 0,
+      "y": 128,
+      "w": 64,
+      "h": 64
+    },
+    "coil": {
+      "col": 1,
+      "row": 2,
+      "x": 64,
+      "y": 128,
+      "w": 64,
+      "h": 64
+    },
+    "stars": {
+      "col": 2,
+      "row": 2,
+      "x": 128,
+      "y": 128,
+      "w": 64,
+      "h": 64
+    },
+    "lightbulb": {
+      "col": 3,
+      "row": 2,
+      "x": 192,
+      "y": 128,
+      "w": 64,
+      "h": 64
+    },
+    "needle": {
+      "col": 4,
+      "row": 2,
+      "x": 256,
+      "y": 128,
+      "w": 64,
+      "h": 64
+    },
+    "crescent": {
+      "col": 0,
+      "row": 3,
+      "x": 0,
+      "y": 192,
+      "w": 64,
+      "h": 64
+    },
+    "double_crescent": {
+      "col": 1,
+      "row": 3,
+      "x": 64,
+      "y": 192,
+      "w": 64,
+      "h": 64
+    },
+    "curved_arc": {
+      "col": 2,
+      "row": 3,
+      "x": 128,
+      "y": 192,
+      "w": 64,
+      "h": 64
+    },
+    "swinging_weight": {
+      "col": 3,
+      "row": 3,
+      "x": 192,
+      "y": 192,
+      "w": 64,
+      "h": 64
+    },
+    "horizontal_line": {
+      "col": 4,
+      "row": 3,
+      "x": 256,
+      "y": 192,
+      "w": 64,
+      "h": 64
+    },
+    "chain": {
+      "col": 0,
+      "row": 4,
+      "x": 0,
+      "y": 256,
+      "w": 64,
+      "h": 64
+    },
+    "ink_flask": {
+      "col": 1,
+      "row": 4,
+      "x": 64,
+      "y": 256,
+      "w": 64,
+      "h": 64
+    },
+    "scythe": {
+      "col": 2,
+      "row": 4,
+      "x": 128,
+      "y": 256,
+      "w": 64,
+      "h": 64
+    },
+    "horn": {
+      "col": 3,
+      "row": 4,
+      "x": 192,
+      "y": 256,
+      "w": 64,
+      "h": 64
+    }
+  }
+}
