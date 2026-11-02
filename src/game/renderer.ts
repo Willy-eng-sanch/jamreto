@@ -11,6 +11,7 @@ import {
   StarCollectible,
   StrokePoint,
 } from './types.ts';
+import { buildStickmanPose } from './stickmanRig.ts';
 
 const MAX_PARTICLES = 200;
 
@@ -1122,63 +1123,11 @@ export class GameRenderer {
       ctx.shadowBlur = 3;
     }
 
-    const running = player.isGrounded && Math.abs(player.vx) > 10;
-    const gait = running ? Math.sin(player.runCycle * 1.2) : 0;
-    const breathing = Math.sin(time * 2.7 + player.x * 0.015) * 0.45;
-    const bodyBob = running ? Math.abs(gait) * 1.1 : breathing;
-    const shoulderY = -28 - bodyBob;
-    const hipY = -11 - bodyBob;
-    const rising = !player.isGrounded && player.vy < -80;
-    const falling = !player.isGrounded && player.vy > 100;
-
-    const leftArm = {
-      shoulder: { x: -3.5, y: shoulderY + 5 },
-      elbow: { x: -9.5, y: shoulderY + 8 },
-      wrist: { x: -12, y: shoulderY + 16 },
-    };
-    const rightArm = {
-      shoulder: { x: 3.5, y: shoulderY + 5 },
-      elbow: { x: 9.5, y: shoulderY + 8 },
-      wrist: { x: 12, y: shoulderY + 16 },
-    };
-
-    for (const [side, arm] of [[-1, leftArm], [1, rightArm]] as const) {
-      const armDrive = running ? gait * side : Math.sin(time * 1.8 + side) * 0.25;
-      if (rising) {
-        arm.elbow = { x: side * 10, y: shoulderY - 4 };
-        arm.wrist = { x: side * 13, y: shoulderY - 11 };
-      } else if (falling) {
-        arm.elbow = { x: side * 12, y: shoulderY - 1 };
-        arm.wrist = { x: side * 16, y: shoulderY + 2 };
-      } else {
-        arm.elbow = {
-          x: side * 9.5 + armDrive * 1.5,
-          y: shoulderY + 8 + Math.max(0, armDrive) * 0.8,
-        };
-        arm.wrist = {
-          x: side * 11.5 + armDrive * 2.5,
-          y: shoulderY + 16 + Math.max(0, armDrive) * 1.2,
-        };
-      }
-    }
-
-    const legs = [-1, 1].map((side) => {
-      const drive = running ? -gait * side : 0;
-      const hip = { x: side * 4.2, y: hipY };
-      const knee = player.isGrounded
-        ? {
-            x: side * 5 + drive * 2.7,
-            y: -7 - Math.max(0, drive) * 1.7 - bodyBob,
-          }
-        : { x: side * 6, y: -6 - bodyBob };
-      const ankle = player.isGrounded
-        ? {
-            x: side * 5 + drive * 5.1,
-            y: -Math.max(0, drive) * 3.2,
-          }
-        : { x: side * 4.5, y: -3 - bodyBob };
-      return { side, hip, knee, ankle };
-    });
+    const pose = buildStickmanPose(player, time);
+    const { running, gait, bodyBob, shoulderY, hipY } = pose;
+    const leftArm = pose.arms[0];
+    const rightArm = pose.arms[1];
+    const legs = pose.legs;
 
     // Legs are drawn behind the torso.
     for (const leg of legs) {
