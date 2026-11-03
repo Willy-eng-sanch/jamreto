@@ -9,9 +9,9 @@ if (!existsSync(indexPath)) {
 }
 
 const html = readFileSync(indexPath, 'utf8');
-const references = [...html.matchAll(/\\b(?:src|href)=["']([^"']+)["']/g)]
+const references = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)]
   .map((match) => match[1])
-  .filter((value) => !/^(?:https?:|data:|mailto:|#|\\/\\/)/i.test(value));
+  .filter((value) => !/^(?:https?:|data:|mailto:|#|\/\/)/i.test(value));
 
 if (references.length === 0) {
   throw new Error('No se encontraron recursos locales en dist/index.html.');
