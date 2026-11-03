@@ -65,13 +65,14 @@ test('phase-exclusive walls and platforms never block the shared mirror route', 
   const level = makeLevel();
   const data = buildMirrorCollisionData(level, []);
   const player = createDefaultPlayer(90, 190, 'WHITE');
+  const startingX = player.x;
   player.vx = 260;
   const result = stepSimulation(
     player, { left: false, right: true, jumpPressed: false, jumpHeld: false, shiftPressed: false },
     data.platforms, [], [], [], [], { id: 'far-goal', x: 480, y: 0, w: 10, h: 10 },
     level.width, level.height, 0.016, []
   );
-  assert.equal(result.player.x > player.x, true);
+  assert.equal(result.player.x > startingX, true);
   assert.equal(data.platforms.some((platform) => platform.id === 'white-wall' || platform.id === 'black-wall'), false);
 });
 
