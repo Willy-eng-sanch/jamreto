@@ -6,6 +6,7 @@ import {
   isHazardPhysical,
   stepSimulation,
   updateErasers,
+  updateMovingPlatforms,
   InputState,
 } from './physics.ts';
 import { DrawnStroke, Eraser, Goal, LevelData, Platform, PlayerState, Spike, StarCollectible } from './types.ts';
