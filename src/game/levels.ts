@@ -5,8 +5,8 @@ export const LEVELS: LevelData[] = [
   {
     id: 1,
     title: 'Página 1: El Primer Trazo',
-    subtitle: 'Dos mundos enfrentados: lo que dibujas se proyecta al contrario',
-    description: 'Izquierda: Mundo Blanco y personaje de grafito. Derecha: Mundo Negro y personaje de tiza. [SHIFT] alterna el control; ambos llegan al sello central.',
+    subtitle: 'Aprende a leer los peligros y los huecos de ambas realidades',
+    description: 'Cruza los primeros huecos. En Contraste, la fase activa oculta sus peligros; en Espejo, los peligros de ambas realidades se combinan en la ruta compartida.',
     width: 960,
     height: 540,
     spawn: { x: 80, y: 380, initialDimension: 'WHITE' },
@@ -38,8 +38,8 @@ export const LEVELS: LevelData[] = [
   {
     id: 2,
     title: 'Página 2: Trazos Cruzados',
-    subtitle: 'Dibuja con el ratón o dedo para tender puentes a tu compañero',
-    description: 'Tu trazo es invisible en tu propio mundo, pero en el mundo del otro se convierte en un puente sólido de tiza o grafito.',
+    subtitle: 'Dibuja puentes que solo sostienen en la realidad opuesta',
+    description: 'El trazo se ve y no sostiene en su origen; en la realidad opuesta se vuelve invisible y sólido. En Espejo, el trazo se proyecta con reflejo horizontal.',
     width: 1000,
     height: 560,
     spawn: { x: 80, y: 160, initialDimension: 'WHITE' },
@@ -67,8 +67,8 @@ export const LEVELS: LevelData[] = [
   {
     id: 3,
     title: 'Página 3: La Escalera Intermitente',
-    subtitle: 'Ascenso coordinado: doble salto y puentes cooperativos',
-    description: 'Escalones suspendidos sobre un foso de púas. Observa los avisos reflejados para anticipar los peligros de cada mundo.',
+    subtitle: 'Escala los peldaños con saltos medidos y lectura de peligros',
+    description: 'Avanza por una escalera de plataformas compartidas. Alterna saltos y doble salto mientras identificas los peligros colocados sobre los escalones.',
     width: 960,
     height: 600,
     spawn: { x: 80, y: 500, initialDimension: 'WHITE' },
@@ -94,8 +94,8 @@ export const LEVELS: LevelData[] = [
     erasers: [],
     inkDrops: [],
     stars: [
-      { id: 'star3_1', x: 320, y: 290, w: 24, h: 24, dimension: 'WHITE', collected: false },
-      { id: 'star3_2', x: 450, y: 210, w: 24, h: 24, dimension: 'BLACK', collected: false },
+      { id: 'star3_1', x: 350, y: 290, w: 24, h: 24, dimension: 'WHITE', collected: false },
+      { id: 'star3_2', x: 490, y: 210, w: 24, h: 24, dimension: 'BLACK', collected: false },
       { id: 'star3_3', x: 620, y: 140, w: 24, h: 24, dimension: 'ANY', collected: false }
     ]
   },
@@ -104,8 +104,8 @@ export const LEVELS: LevelData[] = [
   {
     id: 4,
     title: 'Página 4: El Muro Ilusorio & La Goma',
-    subtitle: 'Borradores patrulleros y barreras cruzadas',
-    description: 'La Goma de Borrar patrulla el pasillo. Fíjate en la otra pantalla para anticipar su trayectoria exacta.',
+    subtitle: 'La goma patrulla y los muros cambian según el modo',
+    description: 'La goma recorre el pasillo y los muros WHITE y BLACK solo bloquean en la fase correspondiente de Contraste. En Espejo, los muros exclusivos no bloquean la ruta sincronizada.',
     width: 1040,
     height: 560,
     spawn: { x: 70, y: 420, initialDimension: 'WHITE' },
@@ -134,8 +134,8 @@ export const LEVELS: LevelData[] = [
   {
     id: 5,
     title: 'Página 5: Lluvia de Tinta',
-    subtitle: 'Gotas que caen del cielo: esquiva las invisibles guiándote por el espejo',
-    description: 'Cada mundo tiene sus propias gotas letales camufladas. El mundo opuesto muestra su trayectoria como aviso.',
+    subtitle: 'Anticipa las gotas periódicas y encuentra ventanas de paso',
+    description: 'Las gotas caen en ciclos y los peligros de los huecos obligan a medir el avance. En Espejo, las gotas y púas de ambas realidades son letales en la ruta compartida.',
     width: 1040,
     height: 560,
     spawn: { x: 70, y: 420, initialDimension: 'WHITE' },
@@ -164,12 +164,12 @@ export const LEVELS: LevelData[] = [
     ]
   },
 
-  // LEVEL 6: El Gran Dúo
+  // LEVEL 6: El Reflejo Final
   {
     id: 6,
-    title: 'Página 6: El Gran Dúo',
-    subtitle: 'El examen final: coordinación, visión cruzada y puentes dibujados',
-    description: 'Lleva a ambos stickman a la meta cooperando. Dibuja rampas, esquiva los peligros invisibles e intercambia posiciones con [SHIFT].',
+    title: 'Página 6: El Reflejo Final',
+    subtitle: 'Examen final: combina movimiento, anticipación y dibujo',
+    description: 'Combina saltos, púas, una goma patrullera y gotas periódicas. En Contraste, SHIFT cambia la fase; en Espejo, cambia la realidad desde la que dibujas mientras tu reflejo sigue sincronizado.',
     width: 1200,
     height: 600,
     spawn: { x: 80, y: 460, initialDimension: 'WHITE' },
