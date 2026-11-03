@@ -1,4 +1,5 @@
 import { Dimension, DrawnStroke, Eraser, Goal, InkDrop, Platform, PlayerState, Rect, Spike, StarCollectible } from './types.ts';
+import { isStrokeSolidInDimension, mirrorPointHorizontally } from './dimensionRules.ts';
 
 export const GRAVITY = 1050;
 export const MOVE_SPEED = 260;
@@ -50,6 +51,34 @@ export function isHazardPhysical(hazard: { physicalIn: Dimension }, currentDimen
   return hazard.physicalIn === currentDimension;
 }
 
+/** Prevents a phase change from placing the player inside newly solid geometry. */
+export function canSwitchDimension(
+  player: PlayerState,
+  nextDimension: Dimension,
+  platforms: Platform[],
+  spikes: Spike[],
+  erasers: Eraser[],
+  inkDrops: InkDrop[]
+): boolean {
+  const probe = { ...player, currentDimension: nextDimension };
+  if (platforms.some((platform) => isPlatformPhysical(platform, nextDimension) && checkAABB(probe, platform))) {
+    return false;
+  }
+  if (spikes.some((spike) => isHazardPhysical(spike, nextDimension) && checkAABB(probe, {
+    x: spike.x + 3, y: spike.y + 4, w: spike.w - 6, h: spike.h - 5,
+  }))) return false;
+  if (erasers.some((eraser) => isHazardPhysical(eraser, nextDimension) && checkAABB(probe, {
+    x: eraser.x + 4, y: eraser.y + 2, w: eraser.w - 8, h: eraser.h - 4,
+  }))) return false;
+  if (inkDrops.some((drop) => drop.timer <= 0 && isHazardPhysical(drop, nextDimension) && checkAABB(probe, {
+    x: drop.x - drop.radius * 0.75,
+    y: drop.y - drop.radius * 0.75,
+    w: drop.radius * 1.5,
+    h: drop.radius * 1.5,
+  }))) return false;
+  return true;
+}
+
 export interface InputState {
   left: boolean;
   right: boolean;
@@ -58,8 +87,9 @@ export interface InputState {
   shiftPressed: boolean;
 }
 
-export function updateMovingPlatforms(platforms: Platform[], dt: number): void {
+export function updateMovingPlatforms(platforms: Platform[], dt: number, activeDimension?: Dimension): void {
   for (const plat of platforms) {
+    if (activeDimension && plat.physicalIn !== 'BOTH' && plat.physicalIn !== activeDimension) continue;
     if (plat.type === 'moving' && plat.vx !== undefined && plat.minX !== undefined && plat.maxX !== undefined) {
       plat.x += plat.vx * dt;
       if (plat.x <= plat.minX) {
@@ -73,8 +103,9 @@ export function updateMovingPlatforms(platforms: Platform[], dt: number): void {
   }
 }
 
-export function updateErasers(erasers: Eraser[], dt: number): void {
+export function updateErasers(erasers: Eraser[], dt: number, activeDimension?: Dimension): void {
   for (const eraser of erasers) {
+    if (activeDimension && eraser.physicalIn !== activeDimension) continue;
     eraser.x += eraser.vx * dt;
     if (eraser.x <= eraser.minX) {
       eraser.x = eraser.minX;
@@ -90,9 +121,11 @@ export function updateInkDrops(
   inkDrops: InkDrop[],
   platforms: Platform[],
   worldHeight: number,
-  dt: number
+  dt: number,
+  activeDimension?: Dimension
 ): void {
   for (const drop of inkDrops) {
+    if (activeDimension && drop.physicalIn !== activeDimension) continue;
     if (drop.timer > 0) {
       drop.timer -= dt;
       if (drop.timer <= 0) {
@@ -151,7 +184,8 @@ export function stepSimulation(
   worldWidth: number,
   worldHeight: number,
   dt: number,
-  drawnStrokes: DrawnStroke[] = []
+  drawnStrokes: DrawnStroke[] = [],
+  enabled = true
 ): StepResult {
   let didJump = false;
   let didLand = false;
@@ -159,7 +193,7 @@ export function stepSimulation(
   let clearedLevel = false;
   const collectedStars: string[] = [];
 
-  if (player.isDead) {
+  if (!enabled || player.isDead || player.isAtGoal) {
     return { player, didJump, didLand, didShift, clearedLevel, collectedStars };
   }
 
@@ -297,15 +331,16 @@ export function stepSimulation(
     }
   }
 
-  // Check collision with Drawn Strokes (Aids drawn by the other stickman!)
+  // Strokes are visible only in their source world. In the opposite world
+  // they are invisible but solid, with their points reflected horizontally.
   for (const stroke of drawnStrokes) {
-    if (stroke.targetDimension !== player.currentDimension) continue;
+    if (!isStrokeSolidInDimension(stroke, player.currentDimension)) continue;
     const pts = stroke.points;
     if (!pts || pts.length < 2) continue;
 
     for (let i = 0; i < pts.length - 1; i++) {
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
+      const p1 = stroke.mirrorToTarget === false ? pts[i] : mirrorPointHorizontally(pts[i], worldWidth);
+      const p2 = stroke.mirrorToTarget === false ? pts[i + 1] : mirrorPointHorizontally(pts[i + 1], worldWidth);
       const minX = Math.min(p1.x, p2.x) - 4;
       const maxX = Math.max(p1.x, p2.x) + 4;
       const playerFeetX = player.x + player.w * 0.5;
@@ -414,6 +449,10 @@ export function stepSimulation(
 
   // 10. Goal check
   if (checkAABB(player, goal)) {
+    player.isAtGoal = true;
+    player.vx = 0;
+    player.vy = 0;
+    player.isGrounded = true;
     clearedLevel = true;
   }
 

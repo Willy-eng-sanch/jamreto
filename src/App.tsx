@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Dimension, DrawnStroke, LevelData, PlayerState, StrokePoint } from './game/types.ts';
+import { Dimension, DrawnStroke, GameMode, LevelData, PlayerState, StrokePoint } from './game/types.ts';
 import { LEVELS } from './game/levels.ts';
 import { GameRenderer } from './game/renderer.ts';
 import {
@@ -8,8 +8,11 @@ import {
   updateInkDrops,
   updateMovingPlatforms,
   createDefaultPlayer,
+  canSwitchDimension,
   InputState,
 } from './game/physics.ts';
+import { mirrorLevelHorizontally, oppositeDimension } from './game/dimensionRules.ts';
+import { buildMirrorCollisionData, syncMirroredPlayer } from './game/mirrorMode.ts';
 import { sound } from './game/audio.ts';
 import { TitleScreen } from './components/TitleScreen.tsx';
 import { GameHud } from './components/GameHud.tsx';
@@ -30,9 +33,13 @@ export default function App() {
     return saved ? JSON.parse(saved) : {};
   });
 
-  // Dual stickman & screen layout state
+  const [gameMode, setGameMode] = useState<GameMode>('contrast');
+  const gameModeRef = useRef<GameMode>('contrast');
+  gameModeRef.current = gameMode;
+  const [contrastDimension, setContrastDimension] = useState<Dimension>('WHITE');
+
+  // Mirror mode keeps the two reflected worlds visible side by side.
   const [activeStickman, setActiveStickman] = useState<'BLACK' | 'WHITE'>('BLACK');
-  const [isScreenSwapped, setIsScreenSwapped] = useState<boolean>(false);
   const [strokesCount, setStrokesCount] = useState<number>(0);
 
   // HUD state (throttled to avoid 60fps React re-renders)
@@ -55,23 +62,21 @@ export default function App() {
 
   // Active level data deep copy ref
   const currentLevelRef = useRef<LevelData>(JSON.parse(JSON.stringify(LEVELS[0])));
+  const blackWorldLevelRef = useRef<LevelData>(mirrorLevelHorizontally(LEVELS[0]));
 
-  // The two stickmen:
-  // playerBlackRef: lives in WHITE world (Light mode, black stickman)
-  // playerWhiteRef: lives in BLACK world (Dark mode, white stickman)
+  // Contrast uses playerBlackRef as its single character.
+  // Mirror mode keeps playerWhiteRef as the synchronized horizontal reflection.
   const playerBlackRef = useRef<PlayerState>(createDefaultPlayer(80, 380, 'WHITE'));
   const playerWhiteRef = useRef<PlayerState>(createDefaultPlayer(80, 380, 'BLACK'));
 
   const activeStickmanRef = useRef<'BLACK' | 'WHITE'>('BLACK');
   activeStickmanRef.current = activeStickman;
 
-  const isScreenSwappedRef = useRef<boolean>(false);
-  isScreenSwappedRef.current = isScreenSwapped;
-
   // Drawn bridges & lines
   const drawnStrokesRef = useRef<DrawnStroke[]>([]);
   const currentDrawingRef = useRef<{
     points: StrokePoint[];
+    sourceDimension: Dimension;
     targetDimension: Dimension;
     color: string;
   } | null>(null);
@@ -81,6 +86,8 @@ export default function App() {
   const shiftsCountRef = useRef<number>(0);
   const lastHudUpdateRef = useRef<number>(0);
   const hitstopTimerRef = useRef<number>(0);
+  const victoryTriggeredRef = useRef<boolean>(false);
+  const gameOverTriggeredRef = useRef<boolean>(false);
 
   // Unified input hub
   const inputRef = useRef<InputState>({
@@ -102,23 +109,29 @@ export default function App() {
   }, [gameState]);
 
   // Load level into simulation refs
-  const loadLevel = useCallback((levelIdx: number) => {
+  const loadLevel = useCallback((levelIdx: number, mode: GameMode = gameModeRef.current) => {
     const safeIdx = Math.min(Math.max(0, levelIdx), LEVELS.length - 1);
     setCurrentLevelIdx(safeIdx);
+    setGameMode(mode);
+    gameModeRef.current = mode;
     const lvlCopy: LevelData = JSON.parse(JSON.stringify(LEVELS[safeIdx]));
     currentLevelRef.current = lvlCopy;
+    const blackWorld = mirrorLevelHorizontally(lvlCopy);
+    blackWorldLevelRef.current = blackWorld;
 
-    playerBlackRef.current = createDefaultPlayer(lvlCopy.spawn.x, lvlCopy.spawn.y, 'WHITE');
-    playerWhiteRef.current = createDefaultPlayer(lvlCopy.spawn.x, lvlCopy.spawn.y, 'BLACK');
+    playerBlackRef.current = createDefaultPlayer(lvlCopy.spawn.x, lvlCopy.spawn.y, lvlCopy.spawn.initialDimension);
+    setContrastDimension(lvlCopy.spawn.initialDimension);
+    playerWhiteRef.current = createDefaultPlayer(blackWorld.spawn.x, blackWorld.spawn.y, 'BLACK');
+    playerWhiteRef.current.facing = 'left';
 
     drawnStrokesRef.current = [];
     currentDrawingRef.current = null;
     setStrokesCount(0);
 
     setActiveStickman('BLACK');
-    setIsScreenSwapped(false);
     activeStickmanRef.current = 'BLACK';
-    isScreenSwappedRef.current = false;
+    victoryTriggeredRef.current = false;
+    gameOverTriggeredRef.current = false;
 
     simTimeRef.current = 0;
     shiftsCountRef.current = 0;
@@ -131,9 +144,9 @@ export default function App() {
   }, []);
 
   // Start game handler
-  const startGame = useCallback((levelIdx?: number) => {
+  const startGame = useCallback((levelIdx?: number, mode: GameMode = gameModeRef.current) => {
     const idx = levelIdx !== undefined ? levelIdx : currentLevelIdx;
-    loadLevel(idx);
+    loadLevel(idx, mode);
     setGameState('playing');
     inputRef.current = {
       left: false,
@@ -160,25 +173,48 @@ export default function App() {
     };
   }, [currentLevelIdx, loadLevel]);
 
-  // Dimension & Screen Swap Trigger
-  // "al precionar shit la parte de abajo pasa arriba y viceversa y se van manejando ambos stickman"
+  // SHIFT changes the active phase in Contrast, or the selected drawing reality in Mirror.
   const triggerDimensionShift = useCallback(() => {
     if (gameStateRef.current !== 'playing') return;
 
+    const player = playerBlackRef.current;
+    if (gameModeRef.current === 'contrast') {
+      const nextDimension = oppositeDimension(player.currentDimension);
+      if (!canSwitchDimension(
+        player,
+        nextDimension,
+        currentLevelRef.current.platforms,
+        currentLevelRef.current.spikes,
+        currentLevelRef.current.erasers,
+        currentLevelRef.current.inkDrops
+      )) {
+        rendererRef.current?.spawnParticles(
+          player.x + player.w * 0.5,
+          player.y + player.h * 0.5,
+          8,
+          'ink_splat',
+          '#ef4444',
+          player.currentDimension
+        );
+        return;
+      }
+      player.currentDimension = nextDimension;
+      setContrastDimension(nextDimension);
+      const visualController: 'BLACK' | 'WHITE' = nextDimension === 'WHITE' ? 'BLACK' : 'WHITE';
+      setActiveStickman(visualController);
+      activeStickmanRef.current = visualController;
+    } else {
+      const previous = activeStickmanRef.current;
+      if (previous === 'BLACK') playerBlackRef.current.vx = 0;
+      else playerWhiteRef.current.vx = 0;
+      const nextActive: 'BLACK' | 'WHITE' = previous === 'BLACK' ? 'WHITE' : 'BLACK';
+      setActiveStickman(nextActive);
+      activeStickmanRef.current = nextActive;
+    }
+
     sound.playShift();
     shiftsCountRef.current += 1;
-
-    const nextSwapped = !isScreenSwappedRef.current;
-    const nextActive: 'BLACK' | 'WHITE' = activeStickmanRef.current === 'BLACK' ? 'WHITE' : 'BLACK';
-
-    setIsScreenSwapped(nextSwapped);
-    setActiveStickman(nextActive);
-    isScreenSwappedRef.current = nextSwapped;
-    activeStickmanRef.current = nextActive;
-
-    if (rendererRef.current) {
-      rendererRef.current.triggerShift(nextSwapped);
-    }
+    rendererRef.current?.triggerShift();
   }, []);
 
   // Clear drawn bridges
@@ -196,7 +232,7 @@ export default function App() {
         localStorage.setItem('shift_unlocked_lvl', String(updated));
         return updated;
       });
-      loadLevel(nextIdx);
+      loadLevel(nextIdx, gameModeRef.current);
       setGameState('playing');
     } else {
       setGameState('title');
@@ -294,6 +330,7 @@ export default function App() {
           e.code === 'KeyE' ||
           e.code === 'KeyJ'
         ) {
+          if (e.repeat) return;
           e.preventDefault();
           triggerDimensionShift();
         }
@@ -398,40 +435,43 @@ export default function App() {
     return { px, py };
   };
 
+  const getWorldPoint = (px: number, py: number, dimension: Dimension) => {
+    const renderer = rendererRef.current;
+    if (!renderer) return null;
+    const transform = gameModeRef.current === 'contrast'
+      ? renderer.lastContrastTransform
+      : dimension === 'WHITE' ? renderer.lastLeftTransform : renderer.lastRightTransform;
+    const gx = (px - transform.viewportX - transform.offsetX) / transform.scale;
+    const gy = (py - transform.offsetY) / transform.scale;
+    const level = currentLevelRef.current;
+    return {
+      x: Math.max(0, Math.min(level.width, gx)),
+      y: Math.max(0, Math.min(level.height, gy)),
+    };
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (gameStateRef.current !== 'playing') return;
     const coords = getCanvasCoords(e);
     if (!coords) return;
     const { px, py } = coords;
-
-    const canvasH = canvasSizeRef.current.h;
-    const halfH = canvasH / 2;
-    const isTopHalf = py < halfH;
-
-    // Determine which world this pointer began in
-    // If isScreenSwapped is false: Top = WHITE, Bottom = BLACK
-    // If isScreenSwapped is true: Top = BLACK, Bottom = WHITE
-    const clickedWorld: Dimension = isScreenSwappedRef.current
-      ? (isTopHalf ? 'BLACK' : 'WHITE')
-      : (isTopHalf ? 'WHITE' : 'BLACK');
-
-    // Asymmetry drawing rule:
-    // When drawn in WHITE world, target is BLACK world (solid in BLACK, invisible in WHITE).
-    // When drawn in BLACK world, target is WHITE world (solid in WHITE, invisible in BLACK).
-    const targetDimension: Dimension = clickedWorld === 'WHITE' ? 'BLACK' : 'WHITE';
-
-    const renderer = rendererRef.current;
-    if (!renderer) return;
-
-    const transform = isTopHalf ? renderer.lastTopTransform : renderer.lastBottomTransform;
-    const gx = (px - transform.offsetX) / transform.scale;
-    const gy = (py - transform.viewportY - transform.offsetY) / transform.scale;
+    const sourceDimension: Dimension = gameModeRef.current === 'contrast'
+      ? playerBlackRef.current.currentDimension
+      : activeStickmanRef.current === 'BLACK' ? 'WHITE' : 'BLACK';
+    if (gameModeRef.current === 'mirror') {
+      const clickedDimension: Dimension = px < canvasSizeRef.current.w / 2 ? 'WHITE' : 'BLACK';
+      if (clickedDimension !== sourceDimension) return;
+    }
+    const targetDimension = oppositeDimension(sourceDimension);
+    const point = getWorldPoint(px, py, sourceDimension);
+    if (!point) return;
 
     isDrawingRef.current = true;
     currentDrawingRef.current = {
-      points: [{ x: gx, y: gy }],
+      points: [point],
+      sourceDimension,
       targetDimension,
-      color: targetDimension === 'WHITE' ? '#0f172a' : '#ffffff',
+      color: sourceDimension === 'WHITE' ? '#0f172a' : '#ffffff',
     };
 
     if (e.currentTarget.setPointerCapture) {
@@ -443,33 +483,25 @@ export default function App() {
     if (!isDrawingRef.current || !currentDrawingRef.current) return;
     const coords = getCanvasCoords(e);
     if (!coords) return;
-    const { px, py } = coords;
-
-    const renderer = rendererRef.current;
-    if (!renderer) return;
-
-    const canvasH = canvasSizeRef.current.h;
-    const halfH = canvasH / 2;
-    const isTopHalf = py < halfH;
-    const transform = isTopHalf ? renderer.lastTopTransform : renderer.lastBottomTransform;
-
-    const gx = (px - transform.offsetX) / transform.scale;
-    const gy = (py - transform.viewportY - transform.offsetY) / transform.scale;
-
+    const point = getWorldPoint(
+      coords.px,
+      coords.py,
+      currentDrawingRef.current.sourceDimension
+    );
+    if (!point) return;
     const pts = currentDrawingRef.current.points;
     const lastPt = pts[pts.length - 1];
-    const distSq = (gx - lastPt.x) ** 2 + (gy - lastPt.y) ** 2;
+    const distSq = (point.x - lastPt.x) ** 2 + (point.y - lastPt.y) ** 2;
 
-    // Sample points when moving at least 8 pixels
     if (distSq > 64) {
-      pts.push({ x: gx, y: gy });
-      renderer.spawnParticles(
-        gx,
-        gy,
+      pts.push(point);
+      rendererRef.current?.spawnParticles(
+        point.x,
+        point.y,
         2,
         'drawn_sparkle',
         currentDrawingRef.current.color,
-        'ALL'
+        currentDrawingRef.current.sourceDimension
       );
     }
   };
@@ -482,7 +514,9 @@ export default function App() {
       const newStroke: DrawnStroke = {
         id: `stroke_${Date.now()}_${Math.random()}`,
         points: currentDrawingRef.current.points,
+        sourceDimension: currentDrawingRef.current.sourceDimension,
         targetDimension: currentDrawingRef.current.targetDimension,
+        mirrorToTarget: gameModeRef.current === 'mirror',
         color: currentDrawingRef.current.color,
         createdAt: Date.now(),
       };
@@ -534,53 +568,68 @@ export default function App() {
         } else {
           simTimeRef.current += dt;
 
-          // Update moving platforms, erasers, ink drops
-          updateMovingPlatforms(level.platforms, dt);
-          updateErasers(level.erasers, dt);
-          updateInkDrops(level.inkDrops, level.platforms, level.height, dt);
+          let resultBlack: ReturnType<typeof stepSimulation>;
+          let resultWhite: ReturnType<typeof stepSimulation>;
 
-          // Route player input to active stickman
-          const isBlackActive = activeStickmanRef.current === 'BLACK';
-          const blackInput: InputState = isBlackActive
-            ? inputRef.current
-            : { left: false, right: false, jumpPressed: false, jumpHeld: false, shiftPressed: false };
-          const whiteInput: InputState = !isBlackActive
-            ? inputRef.current
-            : { left: false, right: false, jumpPressed: false, jumpHeld: false, shiftPressed: false };
+          if (gameModeRef.current === 'contrast') {
+            // One shared stage: both color layers keep moving while one is hidden.
+            updateMovingPlatforms(level.platforms, dt);
+            updateErasers(level.erasers, dt);
+            updateInkDrops(level.inkDrops, level.platforms, level.height, dt);
+            resultBlack = stepSimulation(
+              playerBlack, inputRef.current, level.platforms, level.spikes,
+              level.erasers, level.inkDrops, level.stars, level.goal,
+              level.width, level.height, dt, drawnStrokesRef.current
+            );
+            resultWhite = {
+              player: playerWhite,
+              didJump: false,
+              didLand: false,
+              didShift: false,
+              clearedLevel: false,
+              collectedStars: [],
+            };
+          } else {
+            // Mirror mode is one movement state with a perfectly synchronized reflection.
+            // Geometry from either reality constrains the shared route.
+            updateMovingPlatforms(level.platforms, dt);
+            updateErasers(level.erasers, dt);
+            updateInkDrops(level.inkDrops, level.platforms, level.height, dt);
 
-          // Step Black stickman (in WHITE world)
-          const resultBlack = stepSimulation(
-            playerBlack,
-            blackInput,
-            level.platforms,
-            level.spikes,
-            level.erasers,
-            level.inkDrops,
-            level.stars,
-            level.goal,
-            level.width,
-            level.height,
-            dt,
-            drawnStrokesRef.current
-          );
+            const mirrorCollision = buildMirrorCollisionData(level, drawnStrokesRef.current);
+            resultBlack = stepSimulation(
+              playerBlack,
+              inputRef.current,
+              mirrorCollision.platforms,
+              mirrorCollision.spikes,
+              mirrorCollision.erasers,
+              mirrorCollision.inkDrops,
+              mirrorCollision.stars,
+              level.goal,
+              level.width,
+              level.height,
+              dt,
+              mirrorCollision.strokes
+            );
+            resultWhite = {
+              player: playerWhite,
+              didJump: false,
+              didLand: false,
+              didShift: false,
+              clearedLevel: resultBlack.clearedLevel,
+              collectedStars: resultBlack.collectedStars,
+            };
 
-          // Step White stickman (in BLACK world)
-          const resultWhite = stepSimulation(
-            playerWhite,
-            whiteInput,
-            level.platforms,
-            level.spikes,
-            level.erasers,
-            level.inkDrops,
-            level.stars,
-            level.goal,
-            level.width,
-            level.height,
-            dt,
-            drawnStrokesRef.current
-          );
+            // The right-hand character is a reflection, never an independently controlled actor.
+            syncMirroredPlayer(playerBlack, playerWhite, level.width);
+            const collectedIds = new Set(resultBlack.collectedStars);
+            if (collectedIds.size > 0) {
+              for (const star of level.stars) if (collectedIds.has(star.id)) star.collected = true;
+            }
+            blackWorldLevelRef.current = mirrorLevelHorizontally(level);
+          }
 
-          // Audio triggers
+                    // Audio triggers
           if (resultBlack.didJump || resultWhite.didJump) {
             sound.playJump();
             const jumpingPlayer = resultBlack.didJump ? playerBlack : playerWhite;
@@ -612,8 +661,11 @@ export default function App() {
           }
 
           // Player Death check
-          if (playerBlack.isDead || playerWhite.isDead) {
-            const deadPlayer = playerBlack.isDead ? playerBlack : playerWhite;
+          const deadPlayer = gameModeRef.current === 'contrast'
+            ? playerBlack
+            : playerBlack.isDead ? playerBlack : playerWhite;
+          if (deadPlayer.isDead && !gameOverTriggeredRef.current) {
+            gameOverTriggeredRef.current = true;
             sound.playDeath(deadPlayer.deathReason);
             hitstopTimerRef.current = 0.08;
             renderer.cameraShake = 14;
@@ -626,7 +678,7 @@ export default function App() {
               'ALL'
             );
             setDeathReason(
-              `${deadPlayer.currentDimension === 'WHITE' ? 'Stickman Negro' : 'Stickman Blanco'}: ${
+              `${gameModeRef.current === 'contrast' ? 'Jugador' : deadPlayer.currentDimension === 'WHITE' ? 'Stickman Negro' : 'Stickman Blanco'}: ${
                 deadPlayer.deathReason || 'Eliminado'
               }`
             );
@@ -640,8 +692,12 @@ export default function App() {
             }, 350);
           }
 
-          // Level Victory check (either stickman reaches goal, or cooperative victory!)
-          if (resultBlack.clearedLevel || resultWhite.clearedLevel) {
+          // Contrast needs one arrival; Mirror keeps the cooperative double arrival.
+          const hasWon = gameModeRef.current === 'contrast'
+            ? resultBlack.clearedLevel
+            : playerBlack.isAtGoal && playerWhite.isAtGoal;
+          if (hasWon && !victoryTriggeredRef.current) {
+            victoryTriggeredRef.current = true;
             sound.playVictory();
             renderer.spawnParticles(
               level.goal.x + level.goal.w * 0.5,
@@ -697,28 +753,19 @@ export default function App() {
       // Update renderer particles & shake
       renderer.update(dt);
 
-      // Render the Dual Vertical Split Screen
-      renderer.renderDualWorld(
-        ctx,
-        displayW,
-        displayH,
-        level.width,
-        level.height,
-        playerBlack,
-        playerWhite,
-        activeStickmanRef.current,
-        isScreenSwappedRef.current,
-        level.platforms,
-        level.spikes,
-        level.erasers,
-        level.inkDrops,
-        level.stars,
-        level.goal,
-        level.title,
-        drawnStrokesRef.current,
-        currentDrawingRef.current,
-        currentTime / 1000
-      );
+      // Contrast is one full-screen stage; Mirror keeps both horizontally reflected realities.
+      if (gameModeRef.current === 'contrast') {
+        renderer.renderContrast(
+          ctx, displayW, displayH, playerBlack, level,
+          drawnStrokesRef.current, currentDrawingRef.current, currentTime / 1000
+        );
+      } else {
+        renderer.renderDualWorld(
+          ctx, displayW, displayH, playerBlack, playerWhite,
+          activeStickmanRef.current, level, blackWorldLevelRef.current,
+          drawnStrokesRef.current, currentDrawingRef.current, currentTime / 1000
+        );
+      }
 
       ctx.restore();
     };
@@ -760,7 +807,8 @@ export default function App() {
           levelTitle={currentLevel.title}
           levelSubtitle={currentLevel.subtitle}
           activeStickman={activeStickman}
-          isScreenSwapped={isScreenSwapped}
+          gameMode={gameMode}
+          activeDimension={gameMode === 'contrast' ? contrastDimension : activeStickman === 'BLACK' ? 'WHITE' : 'BLACK'}
           starsCollected={hudStars}
           totalStars={hudTotalStars}
           timeSeconds={hudTime}

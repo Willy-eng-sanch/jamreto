@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Play, Volume2, VolumeX, BookOpen, Sparkles, HelpCircle } from 'lucide-react';
 import { LEVELS } from '../game/levels.ts';
 import { sound } from '../game/audio.ts';
+import { GameMode } from '../game/types.ts';
 
 interface TitleScreenProps {
-  onStart: (levelIdx?: number) => void;
+  onStart: (levelIdx?: number, mode?: GameMode) => void;
   unlockedLevel: number;
   highScores: Record<number, { stars: number; time: number }>;
 }
@@ -15,6 +16,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   highScores,
 }) => {
   const [selectedLevel, setSelectedLevel] = useState<number>(0);
+  const [selectedMode, setSelectedMode] = useState<GameMode>('contrast');
   const [isMuted, setIsMuted] = useState(sound.getMuted());
   const [showHowTo, setShowHowTo] = useState(false);
 
@@ -118,11 +120,29 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           &ldquo;Lo que puede matarte es invisible, y lo que puedes ver no te puede tocar.&rdquo;
         </p>
 
+        {/* Selectable rulesets: both remain available as distinct game modes. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl mb-5">
+          <button
+            onClick={() => setSelectedMode('contrast')}
+            className={`text-left p-3 rounded border-2 transition-all ${selectedMode === 'contrast' ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-300 bg-white/80 text-slate-700 hover:border-slate-500'}`}
+          >
+            <span className="block font-mono text-xs font-black tracking-wider">MODO CONTRASTE</span>
+            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'contrast' ? 'text-slate-200' : 'text-slate-500'}`}>Un nivel, un personaje. SHIFT cambia la fase; los obstáculos activos se camuflan.</span>
+          </button>
+          <button
+            onClick={() => setSelectedMode('mirror')}
+            className={`text-left p-3 rounded border-2 transition-all ${selectedMode === 'mirror' ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-300 bg-white/80 text-slate-700 hover:border-slate-500'}`}
+          >
+            <span className="block font-mono text-xs font-black tracking-wider">MODO ESPEJO</span>
+            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'mirror' ? 'text-slate-200' : 'text-slate-500'}`}>Un jugador y su reflejo se mueven sincronizados. Observa ambas realidades; SHIFT cambia dónde puedes dibujar.</span>
+          </button>
+        </div>
+
         {/* Start Game CTA */}
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <button
             data-start="true"
-            onClick={() => onStart(selectedLevel)}
+            onClick={() => onStart(selectedLevel, selectedMode)}
             className="flex items-center gap-3 px-8 py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-mono text-base font-bold rounded shadow-lg hover:shadow-xl transition-all cursor-pointer border-2 border-slate-900"
           >
             <Play className="w-5 h-5 fill-current text-amber-400" />
@@ -182,7 +202,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Control Hint Line */}
       <footer className="relative z-10 w-full text-center pb-2">
         <p className="font-mono text-xs text-slate-500 tracking-wide">
-          A / D Mover · W / Espacio Doble Salto · <strong className="text-slate-800">SHIFT</strong> Intercambiar Mitades · ✏️ Arrastra con Ratón para Dibujar Puentes · R Reiniciar
+          A / D Mover · W / Espacio Saltar · <strong className="text-slate-800">SHIFT</strong> {selectedMode === 'contrast' ? 'Cambiar fase' : 'Cambiar mundo activo'} · ✏️ Dibujar · R Reiniciar
         </p>
       </footer>
 
@@ -194,24 +214,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <div className="w-16 h-4 bg-amber-200/80 -rotate-3 absolute -top-2 left-6 border border-amber-300 shadow-xs" />
             <h3 className="text-base font-bold text-slate-900 border-b border-slate-300 pb-2 mb-3 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>MANUAL DE COOPERACIÓN Y PANTALLA DIVIDIDA</span>
+              <span>{selectedMode === 'contrast' ? 'MANUAL · MODO CONTRASTE' : 'MANUAL · MODO ESPEJO'}</span>
             </h3>
             <ul className="text-xs space-y-2.5 text-slate-700 leading-relaxed">
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">1.</span>
-                <span><strong>Pantalla Dividida:</strong> La mitad superior muestra el Mundo Blanco con el Stickman Negro; la inferior muestra el Mundo Negro con el Stickman Blanco.</span>
+                <span><strong>{selectedMode === 'contrast' ? 'Un único escenario:' : 'Pantalla dividida:'}</strong> {selectedMode === 'contrast' ? 'El mismo nivel alterna entre fase clara y oscura. El personaje cambia de color para contrastar con el fondo.' : 'Las dos realidades se muestran a la vez, reflejadas horizontalmente. Un único jugador y su reflejo hacen los mismos movimientos.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">2.</span>
-                <span><strong>Visión Cruzada:</strong> Los obstáculos físicos de tu stickman están camuflados con el color de su propio fondo. ¡Mira la pantalla del otro stickman para verlos dibujados!</span>
+                <span><strong>Regla de visibilidad:</strong> Los obstáculos sólidos adoptan el color del fondo y son invisibles. Los de la otra fase se ven, pero no tienen colisión.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">3.</span>
-                <span><strong>Tecla [SHIFT]:</strong> Intercambia la mitad superior por la inferior y alterna el control activo entre ambos stickmen.</span>
+                <span><strong>Tecla [SHIFT]:</strong> {selectedMode === 'contrast' ? 'Cambia entre fase clara y oscura. Si la nueva fase te encerraría dentro de geometría sólida, el cambio se bloquea.' : 'Cambia la realidad seleccionada para dibujar; el reflejo continúa moviéndose simultáneamente.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">4.</span>
-                <span><strong>Dibujar Ayudas ✏️:</strong> Haz clic y arrastra con el ratón o dedo para trazar puentes. Tu trazo es invisible en tu mundo, ¡pero se materializa como plataforma sólida en el mundo del compañero!</span>
+                <span><strong>Dibujar ✏️:</strong> Haz clic y arrastra para crear un trazo visible e intangible en su origen; al cambiar de fase se vuelve invisible y sólido. En Espejo, además, se proyecta horizontalmente invertido.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">5.</span>

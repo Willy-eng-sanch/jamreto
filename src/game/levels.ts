@@ -5,12 +5,12 @@ export const LEVELS: LevelData[] = [
   {
     id: 1,
     title: 'Página 1: El Primer Trazo',
-    subtitle: 'Pantalla Dividida: Lo que tú no ves, tu compañero sí lo ve',
-    description: 'Arriba: Stickman Negro en mundo blanco. Abajo: Stickman Blanco en mundo negro. Pulsa [SHIFT] para intercambiar las mitades y alternar el control.',
+    subtitle: 'Dos mundos enfrentados: lo que dibujas se proyecta al contrario',
+    description: 'Izquierda: Mundo Blanco y personaje de grafito. Derecha: Mundo Negro y personaje de tiza. [SHIFT] alterna el control; ambos llegan al sello central.',
     width: 960,
     height: 540,
     spawn: { x: 80, y: 380, initialDimension: 'WHITE' },
-    goal: { id: 'g1', x: 860, y: 360, w: 40, h: 60, label: 'SELLO 10/10' },
+    goal: { id: 'g1', x: 920, y: 360, w: 40, h: 60, label: 'SELLO 10/10' },
     platforms: [
       { id: 'p1_1', x: 40, y: 440, w: 300, h: 50, physicalIn: 'BOTH', label: 'Tinta base' },
       { id: 'p1_2', x: 460, y: 440, w: 190, h: 50, physicalIn: 'BOTH' },
@@ -43,7 +43,7 @@ export const LEVELS: LevelData[] = [
     width: 1000,
     height: 560,
     spawn: { x: 80, y: 160, initialDimension: 'WHITE' },
-    goal: { id: 'g2', x: 900, y: 440, w: 40, h: 60, label: 'APROBADO' },
+    goal: { id: 'g2', x: 960, y: 440, w: 40, h: 60, label: 'APROBADO' },
     platforms: [
       { id: 'p2_1', x: 40, y: 220, w: 220, h: 30, physicalIn: 'BOTH' },
       { id: 'p2_2', x: 320, y: 440, w: 220, h: 30, physicalIn: 'BOTH' },
@@ -68,11 +68,11 @@ export const LEVELS: LevelData[] = [
     id: 3,
     title: 'Página 3: La Escalera Intermitente',
     subtitle: 'Ascenso coordinado: doble salto y puentes cooperativos',
-    description: 'Escalones suspendidos sobre un foso de púas. Mira la otra pantalla para esquivar las trampas camufladas en tu propio mundo.',
+    description: 'Escalones suspendidos sobre un foso de púas. Observa los avisos reflejados para anticipar los peligros de cada mundo.',
     width: 960,
     height: 600,
     spawn: { x: 80, y: 500, initialDimension: 'WHITE' },
-    goal: { id: 'g3', x: 820, y: 150, w: 40, h: 60, label: 'DESTINO' },
+    goal: { id: 'g3', x: 920, y: 150, w: 40, h: 60, label: 'DESTINO' },
     platforms: [
       { id: 'p3_0', x: 40, y: 560, w: 200, h: 30, physicalIn: 'BOTH' },
       { id: 'p3_1', x: 260, y: 480, w: 120, h: 24, physicalIn: 'BOTH' },
@@ -80,7 +80,7 @@ export const LEVELS: LevelData[] = [
       { id: 'p3_3', x: 270, y: 330, w: 120, h: 24, physicalIn: 'BOTH' },
       { id: 'p3_4', x: 410, y: 250, w: 120, h: 24, physicalIn: 'BOTH' },
       { id: 'p3_5', x: 560, y: 190, w: 140, h: 24, physicalIn: 'BOTH' },
-      { id: 'p3_top', x: 750, y: 210, w: 160, h: 30, physicalIn: 'BOTH' }
+      { id: 'p3_top', x: 750, y: 210, w: 210, h: 30, physicalIn: 'BOTH' }
     ],
     spikes: [
       { id: 's3_1', x: 240, y: 575, w: 120, h: 25, physicalIn: 'WHITE' },
@@ -109,13 +109,13 @@ export const LEVELS: LevelData[] = [
     width: 1040,
     height: 560,
     spawn: { x: 70, y: 420, initialDimension: 'WHITE' },
-    goal: { id: 'g4', x: 950, y: 420, w: 40, h: 60, label: 'FIRMA' },
+    goal: { id: 'g4', x: 1000, y: 420, w: 40, h: 60, label: 'FIRMA' },
     platforms: [
       { id: 'p4_1', x: 40, y: 480, w: 260, h: 40, physicalIn: 'BOTH' },
       { id: 'p4_wall', x: 300, y: 250, w: 40, h: 230, physicalIn: 'WHITE', type: 'scribble_wall', label: 'Muro Blanco' },
       { id: 'p4_mid', x: 340, y: 480, w: 380, h: 40, physicalIn: 'BOTH' },
       { id: 'p4_wall2', x: 720, y: 250, w: 40, h: 230, physicalIn: 'BLACK', type: 'scribble_wall', label: 'Muro Negro' },
-      { id: 'p4_end', x: 760, y: 480, w: 240, h: 40, physicalIn: 'BOTH' }
+      { id: 'p4_end', x: 760, y: 480, w: 280, h: 40, physicalIn: 'BOTH' }
     ],
     spikes: [
       { id: 's4_1', x: 820, y: 450, w: 40, h: 30, physicalIn: 'WHITE' }
@@ -135,16 +135,16 @@ export const LEVELS: LevelData[] = [
     id: 5,
     title: 'Página 5: Lluvia de Tinta',
     subtitle: 'Gotas que caen del cielo: esquiva las invisibles guiándote por el espejo',
-    description: 'Cada mundo tiene sus propias gotas letales camufladas. El otro mundo te avisa exactamente cuándo cae la gota.',
+    description: 'Cada mundo tiene sus propias gotas letales camufladas. El mundo opuesto muestra su trayectoria como aviso.',
     width: 1040,
     height: 560,
     spawn: { x: 70, y: 420, initialDimension: 'WHITE' },
-    goal: { id: 'g5', x: 940, y: 420, w: 40, h: 60, label: 'CUADERNO' },
+    goal: { id: 'g5', x: 1000, y: 420, w: 40, h: 60, label: 'CUADERNO' },
     platforms: [
       { id: 'p5_1', x: 40, y: 480, w: 240, h: 40, physicalIn: 'BOTH' },
       { id: 'p5_2', x: 310, y: 480, w: 230, h: 40, physicalIn: 'BOTH' },
       { id: 'p5_3', x: 570, y: 480, w: 210, h: 40, physicalIn: 'BOTH' },
-      { id: 'p5_4', x: 810, y: 480, w: 190, h: 40, physicalIn: 'BOTH' }
+      { id: 'p5_4', x: 810, y: 480, w: 230, h: 40, physicalIn: 'BOTH' }
     ],
     spikes: [
       { id: 's5_1', x: 280, y: 530, w: 30, h: 30, physicalIn: 'WHITE' },
@@ -173,14 +173,14 @@ export const LEVELS: LevelData[] = [
     width: 1200,
     height: 600,
     spawn: { x: 80, y: 460, initialDimension: 'WHITE' },
-    goal: { id: 'g6', x: 1120, y: 220, w: 45, h: 65, label: 'GRADUADOS' },
+    goal: { id: 'g6', x: 1155, y: 220, w: 45, h: 65, label: 'GRADUADOS' },
     platforms: [
       { id: 'p6_1', x: 40, y: 520, w: 260, h: 40, physicalIn: 'BOTH' },
       { id: 'p6_2', x: 300, y: 520, w: 460, h: 40, physicalIn: 'BOTH' },
       { id: 'p6_3', x: 790, y: 450, w: 110, h: 25, physicalIn: 'BOTH' },
       { id: 'p6_4', x: 920, y: 370, w: 110, h: 25, physicalIn: 'BOTH' },
       { id: 'p6_5', x: 810, y: 290, w: 110, h: 25, physicalIn: 'BOTH' },
-      { id: 'p6_roof', x: 950, y: 280, w: 210, h: 30, physicalIn: 'BOTH' }
+      { id: 'p6_roof', x: 950, y: 280, w: 250, h: 30, physicalIn: 'BOTH' }
     ],
     spikes: [
       { id: 's6_1', x: 360, y: 490, w: 40, h: 30, physicalIn: 'WHITE' },
