@@ -43,7 +43,11 @@ export function syncMirroredPlayer(source: PlayerState, mirror: PlayerState, wor
  */
 export function buildMirrorCollisionData(level: LevelData, strokes: DrawnStroke[]): MirrorCollisionData {
   return {
-    platforms: level.platforms.map((platform) => ({ ...platform, physicalIn: 'BOTH' as const })),
+    // Only shared terrain blocks the paired movement. Phase-exclusive walls/platforms
+    // are omitted so one side can never stop while its reflection keeps moving.
+    platforms: level.platforms
+      .filter((platform) => platform.physicalIn === 'BOTH')
+      .map((platform) => ({ ...platform, physicalIn: 'BOTH' as const })),
     spikes: level.spikes.map((spike) => ({ ...spike, physicalIn: 'WHITE' as const })),
     erasers: level.erasers.map((eraser) => ({ ...eraser, physicalIn: 'WHITE' as const })),
     inkDrops: level.inkDrops.map((drop) => ({ ...drop, physicalIn: 'WHITE' as const })),

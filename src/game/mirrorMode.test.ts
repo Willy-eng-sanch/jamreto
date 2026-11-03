@@ -53,11 +53,26 @@ test('mirror player remains an exact horizontal and vertical reflection', () => 
 
 test('mirror collision data combines obstacles from both realities', () => {
   const data = buildMirrorCollisionData(makeLevel(), []);
+  assert.deepEqual(data.platforms.map((platform) => platform.id), ['floor']);
   assert.ok(data.platforms.every((platform) => platform.physicalIn === 'BOTH'));
   assert.ok(data.spikes.every((spike) => spike.physicalIn === 'WHITE'));
   assert.ok(data.erasers.every((eraser) => eraser.physicalIn === 'WHITE'));
   assert.ok(data.inkDrops.every((drop) => drop.physicalIn === 'WHITE'));
   assert.ok(data.stars.every((star) => star.dimension === 'ANY'));
+});
+
+test('phase-exclusive walls and platforms never block the shared mirror route', () => {
+  const level = makeLevel();
+  const data = buildMirrorCollisionData(level, []);
+  const player = createDefaultPlayer(90, 190, 'WHITE');
+  player.vx = 260;
+  const result = stepSimulation(
+    player, { left: false, right: true, jumpPressed: false, jumpHeld: false, shiftPressed: false },
+    data.platforms, [], [], [], [], { id: 'far-goal', x: 480, y: 0, w: 10, h: 10 },
+    level.width, level.height, 0.016, []
+  );
+  assert.equal(result.player.x > player.x, true);
+  assert.equal(data.platforms.some((platform) => platform.id === 'white-wall' || platform.id === 'black-wall'), false);
 });
 
 test('BLACK-side traces are projected back into the canonical shared route', () => {

@@ -303,7 +303,7 @@ export class GameRenderer {
       ctx, whiteWorld.width, whiteWorld.height, 'WHITE', playerBlack, playerWhite,
       activeStickman === 'BLACK', whiteWorld.platforms, whiteWorld.spikes,
       whiteWorld.erasers, whiteWorld.inkDrops, whiteWorld.stars, whiteWorld.goal,
-      drawnStrokes, time, false, true
+      drawnStrokes, time, false, true, true
     );
     ctx.restore();
 
@@ -317,7 +317,7 @@ export class GameRenderer {
       ctx, blackWorld.width, blackWorld.height, 'BLACK', playerWhite, playerBlack,
       activeStickman === 'WHITE', blackWorld.platforms, blackWorld.spikes,
       blackWorld.erasers, blackWorld.inkDrops, blackWorld.stars, blackWorld.goal,
-      drawnStrokes, time, false, true
+      drawnStrokes, time, false, true, true
     );
     ctx.restore();
 
@@ -399,7 +399,8 @@ export class GameRenderer {
     drawnStrokes: DrawnStroke[],
     time: number,
     showEcho = true,
-    contrastMode = false
+    contrastMode = false,
+    mirrorMode = false
   ): void {
     const isWhite = worldDimension === 'WHITE';
 
@@ -407,7 +408,7 @@ export class GameRenderer {
     this.drawWorldBackground(ctx, width, height, isWhite, time);
 
     // 2. Platforms
-    this.renderPlatforms(ctx, platforms, worldDimension, time, contrastMode);
+    this.renderPlatforms(ctx, platforms, worldDimension, time, contrastMode, mirrorMode);
 
     // 3. Drawn Strokes (Bridges drawn by the other stickman!)
     this.renderDrawnStrokes(ctx, drawnStrokes, worldDimension);
@@ -538,11 +539,13 @@ export class GameRenderer {
     platforms: Platform[],
     worldDimension: Dimension,
     time: number,
-    contrastMode = false
+    contrastMode = false,
+    mirrorMode = false
   ): void {
     const isWhite = worldDimension === 'WHITE';
 
     for (const plat of platforms) {
+      if (mirrorMode && plat.physicalIn !== 'BOTH') continue;
       const isSolidHere = plat.physicalIn === 'BOTH' || plat.physicalIn === worldDimension;
       if (contrastMode && isSolidHere && plat.physicalIn !== 'BOTH') continue;
       if (!contrastMode && !isSolidHere) {
