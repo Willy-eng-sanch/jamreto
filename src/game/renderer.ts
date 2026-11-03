@@ -11,6 +11,7 @@ import {
   StarCollectible,
   StrokePoint,
 } from './types.ts';
+import { buildStickmanPose } from './stickmanRig.ts';
 
 const MAX_PARTICLES = 200;
 
@@ -19,7 +20,16 @@ type HanddrawnSpriteName =
   | 'triangle'
   | 'stars'
   | 'lightbulb'
-  | 'horizontalLine';
+  | 'horizontalLine'
+  | 'torsoPlate'
+  | 'torsoLink'
+  | 'upperArm'
+  | 'lowerArm'
+  | 'upperLeg'
+  | 'lowerLeg'
+  | 'joint'
+  | 'foot'
+  | 'hand';
 
 const HANDDRAWN_SPRITE_TILE_SIZE = 64;
 const HANDDRAWN_SPRITES: Record<HanddrawnSpriteName, { col: number; row: number }> = {
@@ -28,6 +38,18 @@ const HANDDRAWN_SPRITES: Record<HanddrawnSpriteName, { col: number; row: number 
   stars: { col: 2, row: 2 },
   lightbulb: { col: 3, row: 2 },
   horizontalLine: { col: 4, row: 3 },
+  // Provisional anatomy mapping based on the author's separated parts:
+  // sphere=head, triangular plate=chest, tapered plate=abdomen,
+  // duplicated capsules=limb segments, washer=joint, hand=hand, wedge=foot.
+  torsoLink: { col: 1, row: 0 },
+  torsoPlate: { col: 2, row: 0 },
+  upperArm: { col: 3, row: 0 },
+  lowerArm: { col: 4, row: 0 },
+  upperLeg: { col: 0, row: 1 },
+  lowerLeg: { col: 1, row: 1 },
+  joint: { col: 3, row: 1 },
+  foot: { col: 4, row: 1 },
+  hand: { col: 0, row: 2 },
 };
 
 export interface ViewportTransform {
@@ -1020,11 +1042,226 @@ export class GameRenderer {
   /**
    * Faint ghost outline of the partner stickman so you can see where they are
    */
+  private drawRigSegment(
+    ctx: CanvasRenderingContext2D,
+    sprite: HanddrawnSpriteName,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    dimension: Dimension,
+    sourceAngle = -Math.PI / 4,
+    sourceSpan = 0.82
+  ): void {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const length = Math.hypot(dx, dy);
+    if (length < 1) return;
+
+    // The authored links are drawn diagonally inside their 64x64 cells.
+    // Rotate that artwork so its two drawn pin-holes meet the rig pivots.
+    const size = length / sourceSpan;
+    const centerX = (start.x + end.x) * 0.5;
+    const centerY = (start.y + end.y) * 0.5;
+    const targetAngle = Math.atan2(dy, dx);
+
+    this.drawHanddrawnSprite(
+      ctx,
+      sprite,
+      centerX - size * 0.5,
+      centerY - size * 0.5,
+      size,
+      size,
+      dimension,
+      targetAngle - sourceAngle
+    );
+  }
+
+  private drawRigJoint(
+    ctx: CanvasRenderingContext2D,
+    point: { x: number; y: number },
+    dimension: Dimension,
+    size = 5
+  ): void {
+    this.drawHanddrawnSprite(
+      ctx,
+      'joint',
+      point.x - size * 0.5,
+      point.y - size * 0.5,
+      size,
+      size,
+      dimension
+    );
+  }
+
+  /**
+   * Draws the author's character as an articulated puppet.
+   * The pose is calculated from velocity, grounded state and runCycle;
+   * no frame-by-frame action drawings are required.
+   */
+  private renderArticulatedStickman(
+    ctx: CanvasRenderingContext2D,
+    player: PlayerState,
+    dimension: Dimension,
+    time: number,
+    opacity: number,
+    isActiveStickman: boolean
+  ): boolean {
+    const atlas = this.handdrawnAtlas;
+    if (!atlas || !atlas.complete || atlas.naturalWidth === 0) return false;
+
+    ctx.save();
+    ctx.globalAlpha *= opacity;
+
+    const anchorX = player.x + player.w * 0.5;
+    const anchorY = player.y + player.h;
+    ctx.translate(anchorX, anchorY);
+    ctx.scale(player.squashX || 1, player.squashY || 1);
+
+    // Mirror the complete puppet to face the movement direction.
+    if (player.facing === 'left') ctx.scale(-1, 1);
+
+    if (dimension === 'BLACK') {
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.45)';
+      ctx.shadowBlur = 3;
+    }
+
+    const pose = buildStickmanPose(player, time);
+    const { running, gait, bodyBob, shoulderY, hipY } = pose;
+    const leftArm = pose.arms[0];
+    const rightArm = pose.arms[1];
+    const legs = pose.legs;
+
+    // Legs are drawn behind the torso.
+    for (const leg of legs) {
+      this.drawRigSegment(ctx, 'upperLeg', leg.hip, leg.knee, dimension);
+      this.drawRigSegment(ctx, 'lowerLeg', leg.knee, leg.ankle, dimension, Math.PI / 2, 0.58);
+      const footWidth = 9;
+      const footHeight = 7;
+      this.drawHanddrawnSprite(
+        ctx,
+        'foot',
+        leg.ankle.x - footWidth * 0.5,
+        leg.ankle.y - footHeight * 0.55,
+        footWidth,
+        footHeight,
+        dimension,
+        running ? gait * leg.side * 0.16 : 0
+      );
+      this.drawRigJoint(ctx, leg.hip, dimension, 3.8);
+      this.drawRigJoint(ctx, leg.knee, dimension, 3.8);
+      this.drawRigJoint(ctx, leg.ankle, dimension, 3.4);
+    }
+
+    // Arms, forearms, and the two hand sprites.
+    for (const arm of [leftArm, rightArm]) {
+      this.drawRigSegment(ctx, 'upperArm', arm.shoulder, arm.elbow, dimension);
+      this.drawRigSegment(ctx, 'lowerArm', arm.elbow, arm.wrist, dimension);
+      const handAngle = Math.atan2(
+        arm.wrist.y - arm.elbow.y,
+        arm.wrist.x - arm.elbow.x
+      );
+      this.drawHanddrawnSprite(
+        ctx,
+        'hand',
+        arm.wrist.x - 3.7,
+        arm.wrist.y - 4.5,
+        6.4,
+        8,
+        dimension,
+        handAngle - Math.PI / 2
+      );
+      this.drawRigJoint(ctx, arm.shoulder, dimension, 3.6);
+      this.drawRigJoint(ctx, arm.elbow, dimension, 3.7);
+      this.drawRigJoint(ctx, arm.wrist, dimension, 3.4);
+    }
+
+    // Chest, abdomen and spherical head.
+    this.drawHanddrawnSprite(
+      ctx,
+      'torsoPlate',
+      -9.5,
+      shoulderY - 1,
+      19,
+      15,
+      dimension
+    );
+    this.drawHanddrawnSprite(
+      ctx,
+      'torsoLink',
+      -5.3,
+      hipY - 8.5,
+      10.6,
+      13,
+      dimension
+    );
+    this.drawRigJoint(ctx, { x: 0, y: hipY }, dimension, 3.8);
+
+    const headY = shoulderY - 7;
+    this.drawHanddrawnSprite(
+      ctx,
+      'orb',
+      -7,
+      headY - 7,
+      14,
+      14,
+      dimension
+    );
+
+    // A tiny eye gives facing feedback while retaining the hand-drawn head.
+    ctx.save();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = dimension === 'WHITE' ? '#ffffff' : '#101216';
+    ctx.beginPath();
+    ctx.arc(3.1, headY - 1, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    if (isActiveStickman) {
+      ctx.save();
+      const crownY = headY - 10 + Math.sin(time * 6) * 1.5;
+      ctx.fillStyle = '#f59e0b';
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(-5, crownY + 2);
+      ctx.lineTo(-5, crownY - 2);
+      ctx.lineTo(-2, crownY);
+      ctx.lineTo(0, crownY - 4);
+      ctx.lineTo(2, crownY);
+      ctx.lineTo(5, crownY - 2);
+      ctx.lineTo(5, crownY + 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      const ringAlpha = 0.5 + Math.sin(time * 8) * 0.3;
+      ctx.strokeStyle = dimension === 'WHITE'
+        ? `rgba(15, 23, 42, ${ringAlpha})`
+        : `rgba(56, 189, 248, ${ringAlpha})`;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.ellipse(0, 1, 13, 4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+    return true;
+  }
+
   private renderGhostPlayer(
     ctx: CanvasRenderingContext2D,
     otherPlayer: PlayerState,
     isWhiteWorld: boolean
   ): void {
+    if (this.renderArticulatedStickman(
+      ctx,
+      otherPlayer,
+      isWhiteWorld ? 'WHITE' : 'BLACK',
+      0,
+      0.28,
+      false
+    )) return;
+
     ctx.save();
     const px = otherPlayer.x + otherPlayer.w * 0.5;
     const py = otherPlayer.y + otherPlayer.h;
@@ -1069,6 +1306,15 @@ export class GameRenderer {
     isActiveStickman: boolean,
     time: number
   ): void {
+    if (this.renderArticulatedStickman(
+      ctx,
+      player,
+      isWhiteWorld ? 'WHITE' : 'BLACK',
+      time,
+      1,
+      isActiveStickman
+    )) return;
+
     ctx.save();
     const px = player.x + player.w * 0.5;
     const py = player.y + player.h;

@@ -200,5 +200,18 @@
       "w": 64,
       "h": 64
     }
+  },
+  "characterRig": {
+    "head": "orb (row 1, column 1)",
+    "chest": "triangular_piece (row 1, column 3)",
+    "abdomen": "tapered_piece (row 1, column 2)",
+    "upperArms": "capsule_diagonal_a (row 1, column 4)",
+    "lowerArms": "capsule_diagonal_b (row 1, column 5)",
+    "upperLegs": "capsule_diagonal_c (row 2, column 1)",
+    "lowerLegs": "capsule_vertical (row 2, column 2)",
+    "joints": "ring (row 2, column 4)",
+    "hands": "hand (row 3, column 1)",
+    "feet": "triangle (row 2, column 5)",
+    "note": "The jointed-character mapping is an initial visual interpretation of the uploaded sheet; adjust if the author's intended anatomical roles differ."
   }
 }
