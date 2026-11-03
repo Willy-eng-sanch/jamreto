@@ -1,10 +1,13 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import { defineConfig } from 'vite';
 
 export default defineConfig(() => {
   return {
+    // itch.io serves each HTML5 game from a project-specific subdirectory.
+    // Relative asset URLs keep the build working inside that embedded path.
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
