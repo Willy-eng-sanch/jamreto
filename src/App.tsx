@@ -869,6 +869,7 @@ export default function App() {
       {gameState === 'victory' && (
         <VictoryModal
           levelTitle={currentLevel.title}
+          gameMode={gameMode}
           isLastLevel={isLastLevel}
           timeSeconds={runStats.time}
           starsCollected={runStats.stars}
@@ -884,6 +885,7 @@ export default function App() {
       {gameState === 'gameover' && (
         <GameOverModal
           levelTitle={currentLevel.title}
+          gameMode={gameMode}
           deathReason={deathReason}
           onRetry={restartLevel}
           onTitle={() => setGameState('title')}
