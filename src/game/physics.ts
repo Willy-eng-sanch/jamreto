@@ -46,8 +46,8 @@ export function isPlatformPhysical(platform: Platform, currentDimension: Dimensi
   return platform.physicalIn === 'BOTH' || platform.physicalIn === currentDimension;
 }
 
-export function isHazardPhysical(hazard: { physicalIn: Dimension | 'BOTH' }, currentDimension: Dimension): boolean {
-  return hazard.physicalIn === 'BOTH' || hazard.physicalIn === currentDimension;
+export function isHazardPhysical(hazard: { physicalIn: Dimension }, currentDimension: Dimension): boolean {
+  return hazard.physicalIn === currentDimension;
 }
 
 export interface InputState {

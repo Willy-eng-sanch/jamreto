@@ -147,8 +147,8 @@ export const LEVELS: LevelData[] = [
       { id: 'p5_4', x: 810, y: 480, w: 190, h: 40, physicalIn: 'BOTH' }
     ],
     spikes: [
-      { id: 's5_1', x: 280, y: 530, w: 30, h: 30, physicalIn: 'BOTH' },
-      { id: 's5_2', x: 540, y: 530, w: 30, h: 30, physicalIn: 'BOTH' }
+      { id: 's5_1', x: 280, y: 530, w: 30, h: 30, physicalIn: 'WHITE' },
+      { id: 's5_2', x: 540, y: 530, w: 30, h: 30, physicalIn: 'BLACK' }
     ],
     erasers: [],
     inkDrops: [
