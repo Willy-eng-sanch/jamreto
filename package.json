@@ -1,5 +1,5 @@
 {
-  "name": "react-example",
+  "name": "polar-shift",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/game/*.test.ts"
+    "test": "tsx --test src/game/*.test.ts",
+    "build:itch": "vite build && node scripts/verify-itch-build.mjs",
+    "package:itch": "npm run build:itch && cd dist && zip -qr ../polar-shift-html5.zip ."
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
