@@ -1,4 +1,5 @@
 import React from 'react';
+import { GameMode } from '../game/types.ts';
 import { Play, RotateCcw, Home, Sparkles, Clock, Skull, ArrowRight } from 'lucide-react';
 
 interface PauseModalProps {
@@ -55,6 +56,7 @@ export const PauseModal: React.FC<PauseModalProps> = ({
 
 interface VictoryModalProps {
   levelTitle: string;
+  gameMode: GameMode;
   isLastLevel: boolean;
   timeSeconds: number;
   starsCollected: number;
@@ -67,6 +69,7 @@ interface VictoryModalProps {
 
 export const VictoryModal: React.FC<VictoryModalProps> = ({
   levelTitle,
+  gameMode,
   isLastLevel,
   timeSeconds,
   starsCollected,
@@ -118,7 +121,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           <div className="p-3 bg-white border border-slate-300 rounded shadow-2xs">
             <div className="flex items-center gap-1 text-[10px] text-slate-500 font-bold mb-1">
               <span className="w-2.5 h-2.5 rounded-full bg-slate-800" />
-              <span>SHIFTS</span>
+              <span>{gameMode === 'contrast' ? 'FASES' : 'REALIDADES'}</span>
             </div>
             <div className="text-sm sm:text-base font-black text-slate-900 tabular-nums">
               {shiftsUsed}
@@ -172,6 +175,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
 interface GameOverModalProps {
   levelTitle: string;
+  gameMode: GameMode;
   deathReason?: string;
   onRetry: () => void;
   onTitle: () => void;
@@ -179,6 +183,7 @@ interface GameOverModalProps {
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
   levelTitle,
+  gameMode,
   deathReason,
   onRetry,
   onTitle,
@@ -200,7 +205,11 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         </p>
 
         <p className="text-[11px] text-slate-600 mb-6 leading-relaxed">
-          Recuerda: Si estás en el mundo blanco, las trampas letales son <strong>invisibles</strong>. Cambia con [SHIFT] para inspeccionar el boceto antes de moverte.
+          {gameMode === 'contrast' ? (
+            <>Recuerda: los peligros de la fase activa son <strong>invisibles y letales</strong>; los de la fase opuesta se ven, pero son intangibles. [SHIFT] cambia la fase si el espacio de destino es seguro.</>
+          ) : (
+            <>Recuerda: tu reflejo comparte todos tus movimientos y los peligros de ambas realidades son letales en la ruta común. [SHIFT] cambia desde qué realidad puedes dibujar, no tu movimiento.</>
+          )}
         </p>
 
         <div className="flex flex-col gap-2.5">
