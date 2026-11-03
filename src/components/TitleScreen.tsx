@@ -231,7 +231,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">4.</span>
-                <span><strong>Dibujar ✏️:</strong> Haz clic y arrastra para crear un trazo visible e intangible en su origen; al cambiar de fase se vuelve invisible y sólido. En Espejo, además, se proyecta horizontalmente invertido.</span>
+                <span><strong>Dibujar ✏️:</strong> {selectedMode === 'contrast' ? 'Haz clic y arrastra para crear un trazo visible e intangible en su fase de origen; al cambiar de fase se vuelve invisible y sólido.' : 'Dibuja desde la realidad seleccionada: el trazo queda visible e intangible allí y se proyecta horizontalmente, invisible y sólido, en la vista opuesta.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">5.</span>
