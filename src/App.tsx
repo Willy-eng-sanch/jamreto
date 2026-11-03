@@ -18,6 +18,7 @@ import { TitleScreen } from './components/TitleScreen.tsx';
 import { GameHud } from './components/GameHud.tsx';
 import { PauseModal, VictoryModal, GameOverModal } from './components/Modals.tsx';
 import { TouchControls } from './components/TouchControls.tsx';
+import { INITIAL_INK, INK_PER_STAR, consumeInkForSegment, restoreInk } from './game/inkEconomy.ts';
 
 type GameScreen = 'title' | 'playing' | 'paused' | 'victory' | 'gameover';
 
@@ -41,6 +42,8 @@ export default function App() {
   // Mirror mode keeps the two reflected worlds visible side by side.
   const [activeStickman, setActiveStickman] = useState<'BLACK' | 'WHITE'>('BLACK');
   const [strokesCount, setStrokesCount] = useState<number>(0);
+  const [hudInk, setHudInk] = useState<number>(INITIAL_INK);
+  const inkLeftRef = useRef<number>(INITIAL_INK);
 
   // HUD state (throttled to avoid 60fps React re-renders)
   const [hudStars, setHudStars] = useState<number>(0);
@@ -127,6 +130,8 @@ export default function App() {
     drawnStrokesRef.current = [];
     currentDrawingRef.current = null;
     setStrokesCount(0);
+    inkLeftRef.current = INITIAL_INK;
+    setHudInk(INITIAL_INK);
 
     setActiveStickman('BLACK');
     activeStickmanRef.current = 'BLACK';
@@ -451,7 +456,7 @@ export default function App() {
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (gameStateRef.current !== 'playing') return;
+    if (gameStateRef.current !== 'playing' || inkLeftRef.current <= 0) return;
     const coords = getCanvasCoords(e);
     if (!coords) return;
     const { px, py } = coords;
@@ -494,10 +499,15 @@ export default function App() {
     const distSq = (point.x - lastPt.x) ** 2 + (point.y - lastPt.y) ** 2;
 
     if (distSq > 64) {
-      pts.push(point);
+      const inkSegment = consumeInkForSegment(lastPt, point, inkLeftRef.current);
+      if (!inkSegment) return;
+
+      pts.push(inkSegment.point);
+      inkLeftRef.current = inkSegment.inkRemaining;
+      setHudInk(inkSegment.inkRemaining);
       rendererRef.current?.spawnParticles(
-        point.x,
-        point.y,
+        inkSegment.point.x,
+        inkSegment.point.y,
         2,
         'drawn_sparkle',
         currentDrawingRef.current.color,
@@ -645,6 +655,18 @@ export default function App() {
 
           if (resultBlack.didLand || resultWhite.didLand) {
             sound.playLand();
+          }
+
+          const newlyCollectedStars = new Set([
+            ...resultBlack.collectedStars,
+            ...resultWhite.collectedStars,
+          ]);
+          if (newlyCollectedStars.size > 0) {
+            inkLeftRef.current = restoreInk(
+              inkLeftRef.current,
+              newlyCollectedStars.size * INK_PER_STAR
+            );
+            setHudInk(inkLeftRef.current);
           }
 
           if (resultBlack.collectedStars.length > 0 || resultWhite.collectedStars.length > 0) {
@@ -813,6 +835,7 @@ export default function App() {
           totalStars={hudTotalStars}
           timeSeconds={hudTime}
           strokesCount={strokesCount}
+          inkLeft={hudInk}
           isMuted={isMuted}
           onToggleMute={() => {
             const muted = sound.toggleMute();
