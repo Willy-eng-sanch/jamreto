@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main, fix/restore-articulated-stickman]
+    branches: [main, feat/itch-html5-release]
   pull_request:
     branches: [main]
 jobs:
@@ -15,4 +15,10 @@ jobs:
       - run: npm install
       - run: npm run test
       - run: npm run lint
-      - run: npm run build
+      - run: npm run package:itch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: polar-shift-html5
+          path: polar-shift-html5.zip
+          if-no-files-found: error
+          retention-days: 14
