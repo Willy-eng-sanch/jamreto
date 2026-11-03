@@ -3,6 +3,7 @@ import {
   DrawnStroke,
   Eraser,
   Goal,
+  LevelData,
   InkDrop,
   Particle,
   Platform,
@@ -12,6 +13,7 @@ import {
   StrokePoint,
 } from './types.ts';
 import { buildStickmanPose } from './stickmanRig.ts';
+import { isStrokeVisibleInDimension } from './dimensionRules.ts';
 
 const MAX_PARTICLES = 200;
 
@@ -56,9 +58,11 @@ export interface ViewportTransform {
   scale: number;
   offsetX: number;
   offsetY: number;
+  viewportX: number;
   viewportY: number;
   viewportH: number;
   viewportW: number;
+  mirroredX: boolean;
 }
 
 export class GameRenderer {
@@ -66,10 +70,8 @@ export class GameRenderer {
   private handdrawnAtlas: HTMLImageElement | null = null;
   private particleIndex = 0;
   public cameraShake = 0;
-  private swapAnimProgress = 0; // 0 to 1 smooth flip
-  private targetSwapAnim = 0;
-  public lastTopTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportY: 0, viewportH: 270, viewportW: 960 };
-  public lastBottomTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportY: 270, viewportH: 270, viewportW: 960 };
+  public lastLeftTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportX: 0, viewportY: 0, viewportH: 540, viewportW: 480, mirroredX: false };
+  public lastRightTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportX: 480, viewportY: 0, viewportH: 540, viewportW: 480, mirroredX: false };
 
   constructor() {
     const atlas = new Image();
@@ -141,8 +143,7 @@ export class GameRenderer {
     return true;
   }
 
-  public triggerShift(isSwapped: boolean): void {
-    this.targetSwapAnim = isSwapped ? 1 : 0;
+  public triggerShift(): void {
     this.cameraShake = Math.max(this.cameraShake, 7);
   }
 
@@ -178,14 +179,6 @@ export class GameRenderer {
       this.cameraShake = Math.max(0, this.cameraShake - 18 * dt);
     }
 
-    // Smooth swap animation transition
-    const diff = this.targetSwapAnim - this.swapAnimProgress;
-    if (Math.abs(diff) > 0.001) {
-      this.swapAnimProgress += diff * Math.min(1, 12 * dt);
-    } else {
-      this.swapAnimProgress = this.targetSwapAnim;
-    }
-
     // Update particle pool
     for (let i = 0; i < MAX_PARTICLES; i++) {
       const p = this.particles[i];
@@ -201,218 +194,127 @@ export class GameRenderer {
   /**
    * Main render call for the dual vertical split screen.
    */
+  /**
+   * Render fixed side-by-side dimensions. BLACK is a mirrored copy of the
+   * level data, so both characters approach the shared center seam upright.
+   */
   public renderDualWorld(
     ctx: CanvasRenderingContext2D,
     canvasW: number,
     canvasH: number,
-    levelW: number,
-    levelH: number,
     playerBlack: PlayerState,
     playerWhite: PlayerState,
     activeStickman: 'BLACK' | 'WHITE',
-    isScreenSwapped: boolean,
-    platforms: Platform[],
-    spikes: Spike[],
-    erasers: Eraser[],
-    inkDrops: InkDrop[],
-    stars: StarCollectible[],
-    goal: Goal,
-    levelTitle: string,
+    whiteWorld: LevelData,
+    blackWorld: LevelData,
     drawnStrokes: DrawnStroke[],
-    currentDrawing: { points: StrokePoint[]; targetDimension: Dimension; color: string } | null,
+    currentDrawing: { points: StrokePoint[]; sourceDimension: Dimension; targetDimension: Dimension; color: string } | null,
     time: number
-  ): { topTransform: ViewportTransform; bottomTransform: ViewportTransform } {
+  ): { leftTransform: ViewportTransform; rightTransform: ViewportTransform } {
     ctx.save();
-
-    // Camera shake translation
     if (this.cameraShake > 0) {
       const shakeMag = this.cameraShake * this.cameraShake * 0.12;
-      const ox = (Math.random() * 2 - 1) * shakeMag;
-      const oy = (Math.random() * 2 - 1) * shakeMag;
-      ctx.translate(ox, oy);
+      ctx.translate((Math.random() * 2 - 1) * shakeMag, (Math.random() * 2 - 1) * shakeMag);
     }
 
-    const halfH = canvasH / 2;
+    const halfW = canvasW / 2;
+    const scale = Math.min(halfW / whiteWorld.width, canvasH / whiteWorld.height);
+    const offsetX = (halfW - whiteWorld.width * scale) * 0.5;
+    const offsetY = (canvasH - whiteWorld.height * scale) * 0.5;
 
-    // Smooth interpolation of swap: t = 0 means normal (Top: White, Bottom: Black)
-    // t = 1 means swapped (Top: Black, Bottom: White)
-    const t = this.swapAnimProgress;
+    this.lastLeftTransform = {
+      scale, offsetX, offsetY, viewportX: 0, viewportY: 0,
+      viewportH: canvasH, viewportW: halfW, mirroredX: false,
+    };
+    this.lastRightTransform = {
+      scale, offsetX, offsetY, viewportX: halfW, viewportY: 0,
+      viewportH: canvasH, viewportW: halfW, mirroredX: false,
+    };
 
-    // Viewport geometry
-    // Normal:
-    // Light World (WHITE) is at Y = 0 (offset by t * halfH)
-    // Dark World (BLACK) is at Y = halfH (offset by -t * halfH)
-    const whiteViewportY = t * halfH;
-    const blackViewportY = (1 - t) * halfH;
-
-    // Compute transforms to fit level in each half viewport
-    const scale = Math.min(canvasW / levelW, halfH / levelH);
-    const offsetX = (canvasW - levelW * scale) * 0.5;
-    const offsetY = (halfH - levelH * scale) * 0.5;
-
-    // 1. Render Light World (Fondo Blanco, Stickman Negro)
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, whiteViewportY, canvasW, halfH);
+    ctx.rect(0, 0, halfW, canvasH);
     ctx.clip();
-    ctx.translate(offsetX, whiteViewportY + offsetY);
+    ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
-
     this.renderSingleWorld(
-      ctx,
-      levelW,
-      levelH,
-      'WHITE',
-      playerBlack,
-      playerWhite,
-      activeStickman === 'BLACK',
-      platforms,
-      spikes,
-      erasers,
-      inkDrops,
-      stars,
-      goal,
-      drawnStrokes,
-      time
+      ctx, whiteWorld.width, whiteWorld.height, 'WHITE', playerBlack, playerWhite,
+      activeStickman === 'BLACK', whiteWorld.platforms, whiteWorld.spikes,
+      whiteWorld.erasers, whiteWorld.inkDrops, whiteWorld.stars, whiteWorld.goal,
+      drawnStrokes, time
     );
     ctx.restore();
 
-    // 2. Render Dark World (Fondo Negro, Stickman Blanco)
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, blackViewportY, canvasW, halfH);
+    ctx.rect(halfW, 0, halfW, canvasH);
     ctx.clip();
-    ctx.translate(offsetX, blackViewportY + offsetY);
+    ctx.translate(halfW + offsetX, offsetY);
     ctx.scale(scale, scale);
-
     this.renderSingleWorld(
-      ctx,
-      levelW,
-      levelH,
-      'BLACK',
-      playerWhite,
-      playerBlack,
-      activeStickman === 'WHITE',
-      platforms,
-      spikes,
-      erasers,
-      inkDrops,
-      stars,
-      goal,
-      drawnStrokes,
-      time
+      ctx, blackWorld.width, blackWorld.height, 'BLACK', playerWhite, playerBlack,
+      activeStickman === 'WHITE', blackWorld.platforms, blackWorld.spikes,
+      blackWorld.erasers, blackWorld.inkDrops, blackWorld.stars, blackWorld.goal,
+      drawnStrokes, time
     );
     ctx.restore();
 
-    // 3. Render any currently active drawing stroke preview
     if (currentDrawing && currentDrawing.points.length > 0) {
-      // Find which viewport the stroke is being drawn into
-      // Note: stroke targetDimension is the beneficiary world; so it was drawn in the OPPOSITE world!
-      const drawnInWorld: Dimension = currentDrawing.targetDimension === 'WHITE' ? 'BLACK' : 'WHITE';
-      const vpY = drawnInWorld === 'WHITE' ? whiteViewportY : blackViewportY;
-
+      const sourceIsWhite = currentDrawing.sourceDimension === 'WHITE';
+      const paneX = sourceIsWhite ? 0 : halfW;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(0, vpY, canvasW, halfH);
+      ctx.rect(paneX, 0, halfW, canvasH);
       ctx.clip();
-      ctx.translate(offsetX, vpY + offsetY);
+      ctx.translate(paneX + offsetX, offsetY);
       ctx.scale(scale, scale);
-
-      // Draw faint ink trail while actively drawing
-      ctx.strokeStyle = drawnInWorld === 'WHITE' ? 'rgba(30, 41, 59, 0.45)' : 'rgba(255, 255, 255, 0.45)';
+      ctx.strokeStyle = sourceIsWhite ? 'rgba(30, 41, 59, 0.55)' : 'rgba(255, 255, 255, 0.55)';
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.setLineDash([4, 4]);
-
       ctx.beginPath();
-      const pts = currentDrawing.points;
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) {
-        ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.moveTo(currentDrawing.points[0].x, currentDrawing.points[0].y);
+      for (let i = 1; i < currentDrawing.points.length; i++) {
+        ctx.lineTo(currentDrawing.points[i].x, currentDrawing.points[i].y);
       }
       ctx.stroke();
-
-      // Pen nib / chalk dust cursor at last point
-      const lastPt = pts[pts.length - 1];
-      ctx.fillStyle = drawnInWorld === 'WHITE' ? '#0f172a' : '#ffffff';
+      const last = currentDrawing.points[currentDrawing.points.length - 1];
+      ctx.fillStyle = sourceIsWhite ? '#0f172a' : '#ffffff';
       ctx.beginPath();
-      ctx.arc(lastPt.x, lastPt.y, 4, 0, Math.PI * 2);
+      ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
       ctx.fill();
-
       ctx.restore();
     }
 
-    // 4. Render Center Divider (Notebook Spine / Binding & Shift Prompt)
-    const seamY = halfH;
+    // The two reflected goal seals meet at the central vertical seam.
     ctx.save();
-    // Spine band
     ctx.fillStyle = '#0a0b0e';
-    ctx.fillRect(0, seamY - 5, canvasW, 10);
-
-    // Glowing border lines on seam
+    ctx.fillRect(halfW - 3, 0, 6, canvasH);
     ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, seamY - 5);
-    ctx.lineTo(canvasW, seamY - 5);
+    ctx.moveTo(halfW - 3, 0);
+    ctx.lineTo(halfW - 3, canvasH);
+    ctx.moveTo(halfW + 3, 0);
+    ctx.lineTo(halfW + 3, canvasH);
     ctx.stroke();
-
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.beginPath();
-    ctx.moveTo(0, seamY + 5);
-    ctx.lineTo(canvasW, seamY + 5);
-    ctx.stroke();
-
-    // Center pill indicator for swap
-    const badgeW = 220;
-    const badgeH = 26;
-    const badgeX = (canvasW - badgeW) / 2;
-    const badgeY = seamY - badgeH / 2;
-
     ctx.fillStyle = '#0f172a';
     ctx.strokeStyle = '#475569';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 13);
+    ctx.roundRect(halfW - 74, 12, 148, 24, 12);
     ctx.fill();
     ctx.stroke();
-
     ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 11px ui-monospace, monospace';
+    ctx.font = 'bold 10px ui-monospace, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('⇅ [SHIFT] INTERCAMBIAR MITADES', canvasW / 2, seamY);
-
+    ctx.fillText('SHIFT · CAMBIAR', halfW, 24);
     ctx.restore();
 
     ctx.restore();
-
-    const topVpY = 0;
-    const botVpY = halfH;
-
-    this.lastTopTransform = {
-      scale,
-      offsetX,
-      offsetY,
-      viewportY: topVpY,
-      viewportH: halfH,
-      viewportW: canvasW,
-    };
-
-    this.lastBottomTransform = {
-      scale,
-      offsetX,
-      offsetY,
-      viewportY: botVpY,
-      viewportH: halfH,
-      viewportW: canvasW,
-    };
-
-    return {
-      topTransform: this.lastTopTransform,
-      bottomTransform: this.lastBottomTransform,
-    };
+    return { leftTransform: this.lastLeftTransform, rightTransform: this.lastRightTransform };
   }
 
   /**
@@ -449,12 +351,16 @@ export class GameRenderer {
     // 4. Hazards (Asymmetry + Cross-Vision Rules)
     this.renderHazards(ctx, spikes, erasers, inkDrops, worldDimension, time);
 
-    // 5. Collectibles & Goal
+    // 5. Collectibles and the dimension-specific half of the central goal.
     this.renderStars(ctx, stars, worldDimension, time);
     this.renderGoal(ctx, goal, isWhite, time);
 
-    // 6. Ghost of the other stickman (faint pencil/chalk trace so you see where your partner is)
-    this.renderGhostPlayer(ctx, otherPlayer, isWhite);
+    // 6. Echo of the other character projected into this world.
+    const projectedOtherPlayer = {
+      ...otherPlayer,
+      x: width - otherPlayer.x - otherPlayer.w,
+    };
+    this.renderGhostPlayer(ctx, projectedOtherPlayer, isWhite);
 
     // 7. Resident Stickman
     this.renderStickman(ctx, residentPlayer, isWhite, isActiveStickman, time);
@@ -543,12 +449,12 @@ export class GameRenderer {
       }
       ctx.stroke();
 
-      // Cyan glowing margin line
+      // Mirror the notebook margin to the outside edge of the right-hand world.
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(48, 0);
-      ctx.lineTo(48, height);
+      ctx.moveTo(width - 48, 0);
+      ctx.lineTo(width - 48, height);
       ctx.stroke();
 
       // Ambient void drifting specks
@@ -611,10 +517,8 @@ export class GameRenderer {
   }
 
   /**
-   * Drawn Strokes:
-   * "tambien deben dibujar ayudas para el otro pero su trazo es invisible en su mundo"
-   * If targetDimension === worldDimension, it IS visible and physical here!
-   * If targetDimension !== worldDimension, it was drawn here and is INVISIBLE here!
+   * Strokes are drawn only in their source world. In the opposite world
+   * they are not rendered at all, while physics still treats them as solid.
    */
   private renderDrawnStrokes(
     ctx: CanvasRenderingContext2D,
@@ -624,51 +528,31 @@ export class GameRenderer {
     const isWhite = worldDimension === 'WHITE';
 
     for (const stroke of strokes) {
-      // Invisible in creator's world! Only visible in target world!
-      if (stroke.targetDimension !== worldDimension) {
-        continue;
-      }
-
+      if (!isStrokeVisibleInDimension(stroke, worldDimension)) continue;
       const pts = stroke.points;
       if (!pts || pts.length < 2) continue;
 
       ctx.save();
-      if (isWhite) {
-        // Graphite pencil bridge
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.shadowColor = 'rgba(15, 23, 42, 0.3)';
-        ctx.shadowBlur = 4;
-      } else {
-        // Radiant glowing chalk bridge
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.shadowColor = '#38bdf8';
-        ctx.shadowBlur = 8;
-      }
-
+      ctx.strokeStyle = isWhite ? '#0f172a' : '#ffffff';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = isWhite ? 'rgba(15, 23, 42, 0.3)' : '#38bdf8';
+      ctx.shadowBlur = isWhite ? 4 : 8;
       ctx.beginPath();
       ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) {
-        ctx.lineTo(pts[i].x, pts[i].y);
-      }
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
       ctx.stroke();
 
-      // Hand-drawn sketch tick accents along the bridge
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = isWhite ? '#475569' : '#94a3b8';
       for (let i = 0; i < pts.length - 1; i += 2) {
-        const p = pts[i];
+        const point = pts[i];
         ctx.beginPath();
-        ctx.moveTo(p.x, p.y - 2);
-        ctx.lineTo(p.x + 2, p.y + 4);
+        ctx.moveTo(point.x, point.y - 2);
+        ctx.lineTo(point.x + 2, point.y + 4);
         ctx.stroke();
       }
-
       ctx.restore();
     }
   }
@@ -1124,7 +1008,7 @@ export class GameRenderer {
       ctx.shadowBlur = 3;
     }
 
-    const pose = buildStickmanPose(player, time);
+    const pose = buildStickmanPose(player, isActiveStickman && !player.isAtGoal ? time : 0);
     const { running, gait, bodyBob, shoulderY, hipY } = pose;
     const leftArm = pose.arms[0];
     const rightArm = pose.arms[1];

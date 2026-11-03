@@ -78,7 +78,8 @@ export interface StrokePoint {
 export interface DrawnStroke {
   id: string;
   points: StrokePoint[];
-  targetDimension: Dimension; // 'WHITE' or 'BLACK'. Solid and visible in targetDimension; invisible in the creator's world!
+  sourceDimension: Dimension;
+  targetDimension: Dimension;
   color: string;
   createdAt: number;
 }

@@ -1,11 +1,10 @@
 import React from 'react';
-import { Volume2, VolumeX, Pause, RotateCcw, Sparkles, PenTool, Eraser, ArrowUpDown } from 'lucide-react';
+import { Volume2, VolumeX, Pause, RotateCcw, Sparkles, PenTool, Eraser, ArrowLeftRight } from 'lucide-react';
 
 interface GameHudProps {
   levelTitle: string;
   levelSubtitle: string;
   activeStickman: 'BLACK' | 'WHITE';
-  isScreenSwapped: boolean;
   starsCollected: number;
   totalStars: number;
   timeSeconds: number;
@@ -22,7 +21,6 @@ export const GameHud: React.FC<GameHudProps> = ({
   levelTitle,
   levelSubtitle,
   activeStickman,
-  isScreenSwapped,
   starsCollected,
   totalStars,
   timeSeconds,
@@ -61,20 +59,18 @@ export const GameHud: React.FC<GameHudProps> = ({
             onClick={onShift}
             tabIndex={-1}
             className="pointer-events-auto flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-xs font-bold border-2 transition-all cursor-pointer shadow-lg active:scale-95 bg-slate-900 text-white border-cyan-400 hover:bg-slate-800"
-            title="Invertir mitades de pantalla y cambiar stickman [Tecla SHIFT o Z]"
+            title="Alternar el personaje controlado [SHIFT o Z]"
           >
-            <ArrowUpDown className="w-3.5 h-3.5 text-cyan-400 animate-bounce" />
+            <ArrowLeftRight className="w-3.5 h-3.5 text-cyan-400" />
             <span>
-              {isBlackStickman ? 'STICKMAN NEGRO (ACTIVO)' : 'STICKMAN BLANCO (ACTIVO)'}
+              {isBlackStickman ? 'GRAFITO · IZQUIERDA (ACTIVO)' : 'TIZA · DERECHA (ACTIVO)'}
             </span>
             <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono border bg-slate-800 border-slate-700 text-cyan-300">
               SHIFT
             </kbd>
           </button>
           <span className="text-[10px] font-mono mt-1 text-slate-300 bg-slate-900/70 px-2 py-0.5 rounded">
-            {isScreenSwapped
-              ? 'Arriba: Modo Negro · Abajo: Modo Blanco'
-              : 'Arriba: Modo Blanco · Abajo: Modo Negro'}
+            Meta central · ambos deben llegar
           </span>
         </div>
 
@@ -148,10 +144,10 @@ export const GameHud: React.FC<GameHudProps> = ({
       {/* Bottom Hint Banner */}
       <div className="flex items-center justify-between font-mono text-[11px] pb-1">
         <span className="px-2.5 py-1 rounded text-slate-300 bg-slate-900/80 border border-slate-800 shadow-sm">
-          [A/D] Mover · [W/Espacio] Doble Salto · [SHIFT] Invertir Pantallas · ✏️ <strong>Arrastra con ratón/dedo</strong> para dibujar puentes
+          [A/D] Mover · [W/Espacio] Doble Salto · [SHIFT] Alternar personaje · ✏️ <strong>Arrastra con ratón/dedo</strong> para dibujar puentes
         </span>
         <span className="hidden md:inline px-2.5 py-1 rounded font-bold text-cyan-300 bg-slate-900/80 border border-slate-800 shadow-sm">
-          Visión Cruzada: Mira la otra mitad para ver las trampas invisibles de tu mundo
+          Dos mundos enfrentados · los trazos se reflejan en el contrario
         </span>
       </div>
     </div>

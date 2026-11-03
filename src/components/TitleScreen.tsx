@@ -182,7 +182,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Control Hint Line */}
       <footer className="relative z-10 w-full text-center pb-2">
         <p className="font-mono text-xs text-slate-500 tracking-wide">
-          A / D Mover · W / Espacio Doble Salto · <strong className="text-slate-800">SHIFT</strong> Intercambiar Mitades · ✏️ Arrastra con Ratón para Dibujar Puentes · R Reiniciar
+          A / D Mover · W / Espacio Doble Salto · <strong className="text-slate-800">SHIFT</strong> Cambiar Personaje · ✏️ Arrastra con Ratón para Dibujar Puentes · R Reiniciar
         </p>
       </footer>
 
@@ -194,24 +194,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <div className="w-16 h-4 bg-amber-200/80 -rotate-3 absolute -top-2 left-6 border border-amber-300 shadow-xs" />
             <h3 className="text-base font-bold text-slate-900 border-b border-slate-300 pb-2 mb-3 flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>MANUAL DE COOPERACIÓN Y PANTALLA DIVIDIDA</span>
+              <span>MANUAL DE LOS DOS MUNDOS</span>
             </h3>
             <ul className="text-xs space-y-2.5 text-slate-700 leading-relaxed">
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">1.</span>
-                <span><strong>Pantalla Dividida:</strong> La mitad superior muestra el Mundo Blanco con el Stickman Negro; la inferior muestra el Mundo Negro con el Stickman Blanco.</span>
+                <span><strong>Pantalla Dividida:</strong> El Mundo Blanco con el personaje de grafito está a la izquierda. El Mundo Negro con el personaje de tiza está a la derecha. Cada recorrido está reflejado horizontalmente y ambos convergen en el sello central.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">2.</span>
-                <span><strong>Visión Cruzada:</strong> Los obstáculos físicos de tu stickman están camuflados con el color de su propio fondo. ¡Mira la pantalla del otro stickman para verlos dibujados!</span>
+                <span><strong>Visión Cruzada:</strong> Los peligros físicos tienen el color del fondo en tu mundo; en el mundo opuesto aparecen visibles como aviso, pero no dañan allí.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">3.</span>
-                <span><strong>Tecla [SHIFT]:</strong> Intercambia la mitad superior por la inferior y alterna el control activo entre ambos stickmen.</span>
+                <span><strong>Tecla [SHIFT]:</strong> Los mundos no cambian de lugar: SHIFT alterna el control entre el personaje de grafito y el de tiza.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">4.</span>
-                <span><strong>Dibujar Ayudas ✏️:</strong> Haz clic y arrastra con el ratón o dedo para trazar puentes. Tu trazo es invisible en tu mundo, ¡pero se materializa como plataforma sólida en el mundo del compañero!</span>
+                <span><strong>Dibujar Ayudas ✏️:</strong> Haz clic y arrastra con el ratón o dedo para trazar puentes. Tu trazo se ve en el mundo donde lo haces, pero allí no es sólido. En el otro mundo se refleja de izquierda a derecha, queda del mismo tono que el fondo y sí es sólido.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">5.</span>

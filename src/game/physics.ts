@@ -1,4 +1,5 @@
 import { Dimension, DrawnStroke, Eraser, Goal, InkDrop, Platform, PlayerState, Rect, Spike, StarCollectible } from './types.ts';
+import { isStrokeSolidInDimension, mirrorPointHorizontally } from './dimensionRules.ts';
 
 export const GRAVITY = 1050;
 export const MOVE_SPEED = 260;
@@ -58,8 +59,9 @@ export interface InputState {
   shiftPressed: boolean;
 }
 
-export function updateMovingPlatforms(platforms: Platform[], dt: number): void {
+export function updateMovingPlatforms(platforms: Platform[], dt: number, activeDimension?: Dimension): void {
   for (const plat of platforms) {
+    if (activeDimension && plat.physicalIn !== 'BOTH' && plat.physicalIn !== activeDimension) continue;
     if (plat.type === 'moving' && plat.vx !== undefined && plat.minX !== undefined && plat.maxX !== undefined) {
       plat.x += plat.vx * dt;
       if (plat.x <= plat.minX) {
@@ -73,8 +75,9 @@ export function updateMovingPlatforms(platforms: Platform[], dt: number): void {
   }
 }
 
-export function updateErasers(erasers: Eraser[], dt: number): void {
+export function updateErasers(erasers: Eraser[], dt: number, activeDimension?: Dimension): void {
   for (const eraser of erasers) {
+    if (activeDimension && eraser.physicalIn !== activeDimension) continue;
     eraser.x += eraser.vx * dt;
     if (eraser.x <= eraser.minX) {
       eraser.x = eraser.minX;
@@ -90,9 +93,11 @@ export function updateInkDrops(
   inkDrops: InkDrop[],
   platforms: Platform[],
   worldHeight: number,
-  dt: number
+  dt: number,
+  activeDimension?: Dimension
 ): void {
   for (const drop of inkDrops) {
+    if (activeDimension && drop.physicalIn !== activeDimension) continue;
     if (drop.timer > 0) {
       drop.timer -= dt;
       if (drop.timer <= 0) {
@@ -151,7 +156,8 @@ export function stepSimulation(
   worldWidth: number,
   worldHeight: number,
   dt: number,
-  drawnStrokes: DrawnStroke[] = []
+  drawnStrokes: DrawnStroke[] = [],
+  enabled = true
 ): StepResult {
   let didJump = false;
   let didLand = false;
@@ -159,7 +165,7 @@ export function stepSimulation(
   let clearedLevel = false;
   const collectedStars: string[] = [];
 
-  if (player.isDead) {
+  if (!enabled || player.isDead || player.isAtGoal) {
     return { player, didJump, didLand, didShift, clearedLevel, collectedStars };
   }
 
@@ -297,15 +303,16 @@ export function stepSimulation(
     }
   }
 
-  // Check collision with Drawn Strokes (Aids drawn by the other stickman!)
+  // Strokes are visible only in their source world. In the opposite world
+  // they are invisible but solid, with their points reflected horizontally.
   for (const stroke of drawnStrokes) {
-    if (stroke.targetDimension !== player.currentDimension) continue;
+    if (!isStrokeSolidInDimension(stroke, player.currentDimension)) continue;
     const pts = stroke.points;
     if (!pts || pts.length < 2) continue;
 
     for (let i = 0; i < pts.length - 1; i++) {
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
+      const p1 = mirrorPointHorizontally(pts[i], worldWidth);
+      const p2 = mirrorPointHorizontally(pts[i + 1], worldWidth);
       const minX = Math.min(p1.x, p2.x) - 4;
       const maxX = Math.max(p1.x, p2.x) + 4;
       const playerFeetX = player.x + player.w * 0.5;
@@ -414,6 +421,10 @@ export function stepSimulation(
 
   // 10. Goal check
   if (checkAABB(player, goal)) {
+    player.isAtGoal = true;
+    player.vx = 0;
+    player.vy = 0;
+    player.isGrounded = true;
     clearedLevel = true;
   }
 

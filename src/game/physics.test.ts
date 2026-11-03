@@ -8,7 +8,8 @@ import {
   updateErasers,
   InputState,
 } from './physics.ts';
-import { Eraser, Goal, Platform, PlayerState, Spike, StarCollectible } from './types.ts';
+import { DrawnStroke, Eraser, Goal, LevelData, Platform, PlayerState, Spike, StarCollectible } from './types.ts';
+import { isStrokeSolidInDimension, isStrokeVisibleInDimension, mirrorPointHorizontally, mirrorLevelHorizontally, oppositeDimension, projectStrokeHorizontally } from './dimensionRules.ts';
 
 function createMockPlayer(overrides: Partial<PlayerState> = {}): PlayerState {
   return {
@@ -41,6 +42,104 @@ const emptyInput: InputState = {
   jumpHeld: false,
   shiftPressed: false,
 };
+
+test('drawing is visible and non-solid in its source world, invisible and solid in its target world', () => {
+  const stroke: DrawnStroke = {
+    id: 'mirror-rule',
+    points: [{ x: 100, y: 180 }, { x: 300, y: 220 }],
+    sourceDimension: 'WHITE',
+    targetDimension: 'BLACK',
+    color: '#111111',
+    createdAt: 1,
+  };
+  assert.equal(isStrokeVisibleInDimension(stroke, 'WHITE'), true);
+  assert.equal(isStrokeSolidInDimension(stroke, 'WHITE'), false);
+  assert.equal(isStrokeVisibleInDimension(stroke, 'BLACK'), false);
+  assert.equal(isStrokeSolidInDimension(stroke, 'BLACK'), true);
+  assert.equal(oppositeDimension('WHITE'), 'BLACK');
+  assert.equal(oppositeDimension('BLACK'), 'WHITE');
+});
+
+test('stroke projection reflects coordinates so a left-to-right drawing becomes right-to-left', () => {
+  const projected = projectStrokeHorizontally([{ x: 100, y: 200 }, { x: 300, y: 240 }], 1000);
+  assert.deepEqual(projected, [{ x: 900, y: 200 }, { x: 700, y: 240 }]);
+  assert.ok(projected[0].x > projected[1].x);
+  assert.deepEqual(mirrorPointHorizontally({ x: 0, y: 12 }, 1000), { x: 1000, y: 12 });
+});
+
+test('right-hand world mirrors spawn, central goal, platforms, hazards and moving direction', () => {
+  const level: LevelData = {
+    id: 1, title: 'Test', subtitle: '', description: '',
+    width: 200, height: 120,
+    spawn: { x: 20, y: 40, initialDimension: 'WHITE' },
+    goal: { id: 'goal', x: 160, y: 40, w: 40, h: 40 },
+    platforms: [{ id: 'moving', x: 30, y: 80, w: 40, h: 10, physicalIn: 'BOTH', type: 'moving', vx: 10, minX: 10, maxX: 100 }],
+    spikes: [{ id: 'spike', x: 50, y: 90, w: 10, h: 10, physicalIn: 'WHITE' }],
+    erasers: [{ id: 'eraser', x: 20, y: 50, w: 10, h: 10, vx: 5, minX: 10, maxX: 80, physicalIn: 'BLACK' }],
+    inkDrops: [{ id: 'drop', x: 60, y: 5, radius: 4, vy: 20, physicalIn: 'BLACK', spawnY: 5, respawnTime: 1, timer: 0 }],
+    stars: [{ id: 'star', x: 90, y: 60, w: 10, h: 10, dimension: 'BLACK', collected: false }],
+  };
+  const black = mirrorLevelHorizontally(level);
+  assert.equal(black.spawn.x, 158);
+  assert.equal(black.goal.x, 0);
+  assert.equal(black.platforms[0].x, 130);
+  assert.equal(black.platforms[0].vx, -10);
+  assert.equal(black.platforms[0].minX, 100);
+  assert.equal(black.platforms[0].maxX, 190);
+  assert.equal(black.spikes[0].x, 140);
+  assert.equal(black.erasers[0].x, 170);
+  assert.equal(black.erasers[0].vx, -5);
+  assert.equal(black.erasers[0].minX, 120);
+  assert.equal(black.erasers[0].maxX, 190);
+  assert.equal(black.inkDrops[0].x, 140);
+  assert.equal(black.stars[0].x, 100);
+  assert.equal(black.stars[0].dimension, 'WHITE');
+});
+
+test('a character reaching the central goal is frozen until the other arrives', () => {
+  const goal: Goal = { id: 'g', x: 100, y: 100, w: 30, h: 30 };
+  const player = createMockPlayer({ x: 105, y: 100, isGrounded: true });
+  const reached = stepSimulation(player, emptyInput, [], [], [], [], [], goal, 300, 300, 0.016);
+  assert.equal(reached.clearedLevel, true);
+  assert.equal(reached.player.isAtGoal, true);
+  const frozenX = reached.player.x;
+  const moved = stepSimulation(
+    reached.player,
+    { ...emptyInput, right: true, jumpPressed: true },
+    [], [], [], [], [], goal, 300, 300, 0.5
+  );
+  assert.equal(moved.player.x, frozenX);
+  assert.equal(moved.player.vx, 0);
+  assert.equal(moved.player.isAtGoal, true);
+});
+
+test('inactive character does not advance physics while the other world is controlled', () => {
+  const player = createMockPlayer({ x: 120, y: 140, vx: 90, vy: 180, isGrounded: false });
+  const before = { ...player };
+  const result = stepSimulation(
+    player,
+    { ...emptyInput, right: true, jumpPressed: true },
+    [], [], [], [], [],
+    { id: 'goal', x: 900, y: 900, w: 30, h: 30 },
+    1000, 1000, 0.25, [], false
+  );
+  assert.equal(result.player, player);
+  assert.deepEqual(result.player, before);
+  assert.equal(result.didJump, false);
+  assert.equal(result.didLand, false);
+});
+
+test('only the active world advances its own moving platforms', () => {
+  const platforms: Platform[] = [
+    { id: 'white', x: 10, y: 100, w: 20, h: 10, physicalIn: 'WHITE', type: 'moving', vx: 30, minX: 0, maxX: 100 },
+    { id: 'black', x: 10, y: 120, w: 20, h: 10, physicalIn: 'BLACK', type: 'moving', vx: 30, minX: 0, maxX: 100 },
+    { id: 'both', x: 10, y: 140, w: 20, h: 10, physicalIn: 'BOTH', type: 'moving', vx: 30, minX: 0, maxX: 100 },
+  ];
+  updateMovingPlatforms(platforms, 1, 'WHITE');
+  assert.equal(platforms[0].x, 40);
+  assert.equal(platforms[1].x, 10);
+  assert.equal(platforms[2].x, 40);
+});
 
 test('checkAABB correctly detects overlapping and non-overlapping bounding boxes', () => {
   const boxA = { x: 0, y: 0, w: 20, h: 20 };
@@ -174,11 +273,13 @@ test('Double jump allows second jump in midair to conquer impossible gaps', () =
 
 test('Stickman can land and stand on drawn strokes designated for their dimension', () => {
   const goal: Goal = { id: 'g', x: 900, y: 900, w: 30, h: 30 };
-  const stroke = {
+  const stroke: DrawnStroke = {
     id: 's1',
-    points: [{ x: 50, y: 200 }, { x: 250, y: 200 }],
-    targetDimension: 'WHITE' as const,
-    color: '#000',
+    // Origin is BLACK; projection into WHITE mirrors these points to x=50..250.
+    points: [{ x: 950, y: 200 }, { x: 750, y: 200 }],
+    sourceDimension: 'BLACK',
+    targetDimension: 'WHITE',
+    color: '#ffffff',
     createdAt: Date.now()
   };
 
