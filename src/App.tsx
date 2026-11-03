@@ -12,7 +12,7 @@ import {
   InputState,
 } from './game/physics.ts';
 import { mirrorLevelHorizontally, oppositeDimension } from './game/dimensionRules.ts';
-import { buildMirrorCollisionData, syncMirroredPlayer } from './game/mirrorMode.ts';
+import { buildMirrorCollisionData, getNextActiveStickman, syncMirroredPlayer } from './game/mirrorMode.ts';
 import { sound } from './game/audio.ts';
 import { TitleScreen } from './components/TitleScreen.tsx';
 import { GameHud } from './components/GameHud.tsx';
@@ -209,10 +209,8 @@ export default function App() {
       setActiveStickman(visualController);
       activeStickmanRef.current = visualController;
     } else {
-      const previous = activeStickmanRef.current;
-      if (previous === 'BLACK') playerBlackRef.current.vx = 0;
-      else playerWhiteRef.current.vx = 0;
-      const nextActive: 'BLACK' | 'WHITE' = previous === 'BLACK' ? 'WHITE' : 'BLACK';
+      // SHIFT selects the drawing pane only; it must not alter shared movement or physics.
+      const nextActive = getNextActiveStickman(activeStickmanRef.current);
       setActiveStickman(nextActive);
       activeStickmanRef.current = nextActive;
     }

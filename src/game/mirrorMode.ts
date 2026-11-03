@@ -5,6 +5,13 @@ import {
   PlayerState,
 } from './types.ts';
 
+export type ActiveStickman = 'BLACK' | 'WHITE';
+
+/** Switch the selected drawing reality without touching either player's physics state. */
+export function getNextActiveStickman(activeStickman: ActiveStickman): ActiveStickman {
+  return activeStickman === 'BLACK' ? 'WHITE' : 'BLACK';
+}
+
 export interface MirrorCollisionData {
   platforms: LevelData['platforms'];
   spikes: LevelData['spikes'];
