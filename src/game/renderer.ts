@@ -72,6 +72,7 @@ export class GameRenderer {
   public cameraShake = 0;
   public lastLeftTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportX: 0, viewportY: 0, viewportH: 540, viewportW: 480, mirroredX: false };
   public lastRightTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportX: 480, viewportY: 0, viewportH: 540, viewportW: 480, mirroredX: false };
+  public lastContrastTransform: ViewportTransform = { scale: 1, offsetX: 0, offsetY: 0, viewportX: 0, viewportY: 0, viewportH: 540, viewportW: 960, mirroredX: false };
 
   constructor() {
     const atlas = new Image();
@@ -189,6 +190,67 @@ export class GameRenderer {
         p.vy += 220 * dt;
       }
     }
+  }
+
+  /** Render a single shared stage with phase-dependent camouflage and collisions. */
+  public renderContrast(
+    ctx: CanvasRenderingContext2D,
+    canvasW: number,
+    canvasH: number,
+    player: PlayerState,
+    level: LevelData,
+    drawnStrokes: DrawnStroke[],
+    currentDrawing: { points: StrokePoint[]; sourceDimension: Dimension; targetDimension: Dimension; color: string } | null,
+    time: number
+  ): ViewportTransform {
+    ctx.save();
+    if (this.cameraShake > 0) {
+      const shakeMag = this.cameraShake * this.cameraShake * 0.12;
+      ctx.translate((Math.random() * 2 - 1) * shakeMag, (Math.random() * 2 - 1) * shakeMag);
+    }
+
+    const scale = Math.min(canvasW / level.width, canvasH / level.height);
+    const offsetX = (canvasW - level.width * scale) * 0.5;
+    const offsetY = (canvasH - level.height * scale) * 0.5;
+    this.lastContrastTransform = {
+      scale, offsetX, offsetY, viewportX: 0, viewportY: 0,
+      viewportH: canvasH, viewportW: canvasW, mirroredX: false,
+    };
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, canvasW, canvasH);
+    ctx.clip();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+    this.renderSingleWorld(
+      ctx, level.width, level.height, player.currentDimension, player, player,
+      true, level.platforms, level.spikes, level.erasers, level.inkDrops,
+      level.stars, level.goal, drawnStrokes, time, false, true
+    );
+    ctx.restore();
+
+    if (currentDrawing && currentDrawing.sourceDimension === player.currentDimension && currentDrawing.points.length > 0) {
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(scale, scale);
+      ctx.strokeStyle = player.currentDimension === 'WHITE'
+        ? 'rgba(15, 23, 42, 0.72)' : 'rgba(255, 255, 255, 0.72)';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(currentDrawing.points[0].x, currentDrawing.points[0].y);
+      for (let i = 1; i < currentDrawing.points.length; i++) {
+        ctx.lineTo(currentDrawing.points[i].x, currentDrawing.points[i].y);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+    return this.lastContrastTransform;
   }
 
   /**
@@ -335,7 +397,9 @@ export class GameRenderer {
     stars: StarCollectible[],
     goal: Goal,
     drawnStrokes: DrawnStroke[],
-    time: number
+    time: number,
+    showEcho = true,
+    contrastMode = false
   ): void {
     const isWhite = worldDimension === 'WHITE';
 
@@ -343,7 +407,7 @@ export class GameRenderer {
     this.drawWorldBackground(ctx, width, height, isWhite, time);
 
     // 2. Platforms
-    this.renderPlatforms(ctx, platforms, worldDimension, time);
+    this.renderPlatforms(ctx, platforms, worldDimension, time, contrastMode);
 
     // 3. Drawn Strokes (Bridges drawn by the other stickman!)
     this.renderDrawnStrokes(ctx, drawnStrokes, worldDimension);
@@ -356,11 +420,13 @@ export class GameRenderer {
     this.renderGoal(ctx, goal, isWhite, time);
 
     // 6. Echo of the other character projected into this world.
-    const projectedOtherPlayer = {
-      ...otherPlayer,
-      x: width - otherPlayer.x - otherPlayer.w,
-    };
-    this.renderGhostPlayer(ctx, projectedOtherPlayer, isWhite);
+    if (showEcho) {
+      const projectedOtherPlayer = {
+        ...otherPlayer,
+        x: width - otherPlayer.x - otherPlayer.w,
+      };
+      this.renderGhostPlayer(ctx, projectedOtherPlayer, isWhite);
+    }
 
     // 7. Resident Stickman
     this.renderStickman(ctx, residentPlayer, isWhite, isActiveStickman, time);
@@ -471,13 +537,15 @@ export class GameRenderer {
     ctx: CanvasRenderingContext2D,
     platforms: Platform[],
     worldDimension: Dimension,
-    time: number
+    time: number,
+    contrastMode = false
   ): void {
     const isWhite = worldDimension === 'WHITE';
 
     for (const plat of platforms) {
       const isSolidHere = plat.physicalIn === 'BOTH' || plat.physicalIn === worldDimension;
-      if (!isSolidHere) {
+      if (contrastMode && isSolidHere && plat.physicalIn !== 'BOTH') continue;
+      if (!contrastMode && !isSolidHere) {
         // Intangible in this world: draw faint dashed line so player knows where platforms are
         ctx.save();
         ctx.strokeStyle = isWhite ? 'rgba(30, 41, 59, 0.18)' : 'rgba(255, 255, 255, 0.18)';
@@ -489,7 +557,15 @@ export class GameRenderer {
       }
 
       ctx.save();
-      if (isWhite) {
+      if (contrastMode && plat.physicalIn !== 'BOTH') {
+        // Visible obstacles belong to the opposite, currently intangible phase.
+        const visibleColor = plat.physicalIn === 'BLACK' ? '#0f172a' : '#f8fafc';
+        ctx.strokeStyle = visibleColor;
+        ctx.fillStyle = plat.physicalIn === 'BLACK' ? 'rgba(15, 23, 42, 0.16)' : 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = 2.5;
+        if (plat.type === 'scribble_wall') this.drawScribbleBlock(ctx, plat.x, plat.y, plat.w, plat.h, visibleColor);
+        else this.drawRulerPlatform(ctx, plat.x, plat.y, plat.w, plat.h, visibleColor);
+      } else if (isWhite) {
         // Solid graphite platform
         ctx.strokeStyle = '#1e293b';
         ctx.fillStyle = 'rgba(30, 41, 59, 0.12)';

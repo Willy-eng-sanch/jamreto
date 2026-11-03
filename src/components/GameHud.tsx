@@ -1,10 +1,13 @@
 import React from 'react';
+import { Dimension, GameMode } from '../game/types.ts';
 import { Volume2, VolumeX, Pause, RotateCcw, Sparkles, PenTool, Eraser, ArrowLeftRight } from 'lucide-react';
 
 interface GameHudProps {
   levelTitle: string;
   levelSubtitle: string;
   activeStickman: 'BLACK' | 'WHITE';
+  gameMode: GameMode;
+  activeDimension: Dimension;
   starsCollected: number;
   totalStars: number;
   timeSeconds: number;
@@ -21,6 +24,8 @@ export const GameHud: React.FC<GameHudProps> = ({
   levelTitle,
   levelSubtitle,
   activeStickman,
+  gameMode,
+  activeDimension,
   starsCollected,
   totalStars,
   timeSeconds,
@@ -59,18 +64,20 @@ export const GameHud: React.FC<GameHudProps> = ({
             onClick={onShift}
             tabIndex={-1}
             className="pointer-events-auto flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-xs font-bold border-2 transition-all cursor-pointer shadow-lg active:scale-95 bg-slate-900 text-white border-cyan-400 hover:bg-slate-800"
-            title="Alternar el personaje controlado [SHIFT o Z]"
+            title={gameMode === 'contrast' ? 'Alternar fase clara/oscura [SHIFT o Z]' : 'Cambiar mundo activo y personaje [SHIFT o Z]'}
           >
             <ArrowLeftRight className="w-3.5 h-3.5 text-cyan-400" />
             <span>
-              {isBlackStickman ? 'GRAFITO · IZQUIERDA (ACTIVO)' : 'TIZA · DERECHA (ACTIVO)'}
+              {gameMode === 'contrast'
+                ? activeDimension === 'WHITE' ? 'CONTRASTE · FASE CLARA' : 'CONTRASTE · FASE OSCURA'
+                : isBlackStickman ? 'ESPEJO · GRAFITO / IZQUIERDA' : 'ESPEJO · TIZA / DERECHA'}
             </span>
             <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono border bg-slate-800 border-slate-700 text-cyan-300">
               SHIFT
             </kbd>
           </button>
           <span className="text-[10px] font-mono mt-1 text-slate-300 bg-slate-900/70 px-2 py-0.5 rounded">
-            Meta central · ambos deben llegar
+            {gameMode === 'contrast' ? 'Un personaje · dos fases' : 'Dos realidades · ambos deben llegar'}
           </span>
         </div>
 
@@ -144,10 +151,10 @@ export const GameHud: React.FC<GameHudProps> = ({
       {/* Bottom Hint Banner */}
       <div className="flex items-center justify-between font-mono text-[11px] pb-1">
         <span className="px-2.5 py-1 rounded text-slate-300 bg-slate-900/80 border border-slate-800 shadow-sm">
-          [A/D] Mover · [W/Espacio] Doble Salto · [SHIFT] Alternar personaje · ✏️ <strong>Arrastra con ratón/dedo</strong> para dibujar puentes
+          [A/D] Mover · [W/Espacio] Doble Salto · [SHIFT] {gameMode === 'contrast' ? 'Alternar fase' : 'Alternar mundo/personaje'} · ✏️ <strong>Arrastra para trazar</strong>
         </span>
         <span className="hidden md:inline px-2.5 py-1 rounded font-bold text-cyan-300 bg-slate-900/80 border border-slate-800 shadow-sm">
-          Dos mundos enfrentados · los trazos se reflejan en el contrario
+          {gameMode === 'contrast' ? 'Lo visible es intangible; lo invisible es sólido' : 'Dos mundos reflejados · trazo proyectado al contrario'}
         </span>
       </div>
     </div>

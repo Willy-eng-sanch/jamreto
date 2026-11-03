@@ -51,6 +51,34 @@ export function isHazardPhysical(hazard: { physicalIn: Dimension }, currentDimen
   return hazard.physicalIn === currentDimension;
 }
 
+/** Prevents a phase change from placing the player inside newly solid geometry. */
+export function canSwitchDimension(
+  player: PlayerState,
+  nextDimension: Dimension,
+  platforms: Platform[],
+  spikes: Spike[],
+  erasers: Eraser[],
+  inkDrops: InkDrop[]
+): boolean {
+  const probe = { ...player, currentDimension: nextDimension };
+  if (platforms.some((platform) => isPlatformPhysical(platform, nextDimension) && checkAABB(probe, platform))) {
+    return false;
+  }
+  if (spikes.some((spike) => isHazardPhysical(spike, nextDimension) && checkAABB(probe, {
+    x: spike.x + 3, y: spike.y + 4, w: spike.w - 6, h: spike.h - 5,
+  }))) return false;
+  if (erasers.some((eraser) => isHazardPhysical(eraser, nextDimension) && checkAABB(probe, {
+    x: eraser.x + 4, y: eraser.y + 2, w: eraser.w - 8, h: eraser.h - 4,
+  }))) return false;
+  if (inkDrops.some((drop) => drop.timer <= 0 && isHazardPhysical(drop, nextDimension) && checkAABB(probe, {
+    x: drop.x - drop.radius * 0.75,
+    y: drop.y - drop.radius * 0.75,
+    w: drop.radius * 1.5,
+    h: drop.radius * 1.5,
+  }))) return false;
+  return true;
+}
+
 export interface InputState {
   left: boolean;
   right: boolean;
@@ -311,8 +339,8 @@ export function stepSimulation(
     if (!pts || pts.length < 2) continue;
 
     for (let i = 0; i < pts.length - 1; i++) {
-      const p1 = mirrorPointHorizontally(pts[i], worldWidth);
-      const p2 = mirrorPointHorizontally(pts[i + 1], worldWidth);
+      const p1 = stroke.mirrorToTarget === false ? pts[i] : mirrorPointHorizontally(pts[i], worldWidth);
+      const p2 = stroke.mirrorToTarget === false ? pts[i + 1] : mirrorPointHorizontally(pts[i + 1], worldWidth);
       const minX = Math.min(p1.x, p2.x) - 4;
       const maxX = Math.max(p1.x, p2.x) + 4;
       const playerFeetX = player.x + player.w * 0.5;

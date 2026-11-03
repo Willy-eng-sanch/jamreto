@@ -1,4 +1,5 @@
 export type Dimension = 'WHITE' | 'BLACK';
+export type GameMode = 'contrast' | 'mirror';
 
 export interface Rect {
   x: number;
@@ -80,6 +81,8 @@ export interface DrawnStroke {
   points: StrokePoint[];
   sourceDimension: Dimension;
   targetDimension: Dimension;
+  /** False keeps the stroke at the same coordinates in the destination phase. */
+  mirrorToTarget?: boolean;
   color: string;
   createdAt: number;
 }
