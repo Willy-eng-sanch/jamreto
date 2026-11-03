@@ -19,7 +19,7 @@ export interface Platform extends Rect {
 
 export interface Spike extends Rect {
   id: string;
-  physicalIn: 'WHITE' | 'BLACK';
+  physicalIn: 'WHITE' | 'BLACK' | 'BOTH';
   direction?: 'up' | 'down' | 'left' | 'right';
 }
 
