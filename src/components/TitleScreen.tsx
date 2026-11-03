@@ -43,7 +43,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       <header className="relative z-10 w-full max-w-4xl flex items-center justify-between pt-2">
         <div className="flex items-center gap-2 text-slate-700 font-mono text-xs tracking-wider">
           <span className="w-2.5 h-2.5 rounded-full bg-slate-900 animate-pulse" />
-          <span>CUADERNO DE BOCETOS V1.0 // EXPERIMENTO ASIMÉTRICO</span>
+          <span>POLAR SHIFT // EXPERIMENTO DE DOS REALIDADES</span>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -68,7 +68,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       <div className="relative z-10 flex flex-col items-center text-center my-auto max-w-2xl">
         {/* Bespoke Title SVG */}
         <div className="mb-2">
-          <svg viewBox="0 0 460 110" className="w-[360px] sm:w-[460px] h-auto drop-shadow-md">
+          <svg viewBox="0 0 520 110" className="w-[360px] sm:w-[520px] h-auto drop-shadow-md">
             <defs>
               <filter id="pencilWobble">
                 <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
@@ -76,39 +76,39 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               </filter>
             </defs>
             {/* Background dual tone split */}
-            <rect x="10" y="10" width="220" height="90" fill="#ffffff" stroke="#1e293b" strokeWidth="2.5" />
-            <rect x="230" y="10" width="220" height="90" fill="#0f172a" stroke="#1e293b" strokeWidth="2.5" />
+            <rect x="10" y="10" width="250" height="90" fill="#ffffff" stroke="#1e293b" strokeWidth="2.5" />
+            <rect x="260" y="10" width="250" height="90" fill="#0f172a" stroke="#1e293b" strokeWidth="2.5" />
             {/* Split dividing seam */}
-            <line x1="230" y1="10" x2="230" y2="100" stroke="#f43f5e" strokeWidth="2" strokeDasharray="4 3" />
+            <line x1="260" y1="10" x2="260" y2="100" stroke="#f43f5e" strokeWidth="2" strokeDasharray="4 3" />
 
-            {/* Left side: SHIFT in graphite */}
+            {/* Left side: POLAR in graphite */}
             <text
-              x="120"
+              x="135"
               y="68"
               textAnchor="middle"
               fill="#0f172a"
               fontFamily="Space Mono, monospace"
               fontWeight="900"
-              fontSize="48"
-              letterSpacing="3"
+              fontSize="36"
+              letterSpacing="1"
             >
-              SHI
+              POLAR
             </text>
-            {/* Right side: FT in glowing chalk */}
+            {/* Right side: SHIFT in glowing chalk */}
             <text
-              x="265"
+              x="385"
               y="68"
               textAnchor="middle"
               fill="#ffffff"
               fontFamily="Space Mono, monospace"
               fontWeight="900"
-              fontSize="48"
-              letterSpacing="3"
+              fontSize="36"
+              letterSpacing="1"
             >
-              FT
+              SHIFT
             </text>
             {/* Hand-drawn underline */}
-            <path d="M 30 84 Q 230 88 430 84" stroke="#e11d48" strokeWidth="3" fill="none" strokeLinecap="round" />
+            <path d="M 30 84 Q 260 88 490 84" stroke="#e11d48" strokeWidth="3" fill="none" strokeLinecap="round" />
           </svg>
         </div>
 
@@ -127,14 +127,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className={`text-left p-3 rounded border-2 transition-all ${selectedMode === 'contrast' ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-300 bg-white/80 text-slate-700 hover:border-slate-500'}`}
           >
             <span className="block font-mono text-xs font-black tracking-wider">MODO CONTRASTE</span>
-            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'contrast' ? 'text-slate-200' : 'text-slate-500'}`}>Un nivel, un personaje. SHIFT cambia la fase; los obstáculos activos se camuflan.</span>
+            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'contrast' ? 'text-slate-200' : 'text-slate-500'}`}>Un nivel y un personaje. SHIFT alterna la fase; los peligros de la fase activa se camuflan.</span>
           </button>
           <button
             onClick={() => setSelectedMode('mirror')}
             className={`text-left p-3 rounded border-2 transition-all ${selectedMode === 'mirror' ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-300 bg-white/80 text-slate-700 hover:border-slate-500'}`}
           >
             <span className="block font-mono text-xs font-black tracking-wider">MODO ESPEJO</span>
-            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'mirror' ? 'text-slate-200' : 'text-slate-500'}`}>Un jugador y su reflejo se mueven sincronizados. Observa ambas realidades; SHIFT cambia dónde puedes dibujar.</span>
+            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'mirror' ? 'text-slate-200' : 'text-slate-500'}`}>Un jugador y su reflejo comparten movimiento. SHIFT elige desde cuál realidad puedes dibujar.</span>
           </button>
         </div>
 
@@ -202,7 +202,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Control Hint Line */}
       <footer className="relative z-10 w-full text-center pb-2">
         <p className="font-mono text-xs text-slate-500 tracking-wide">
-          A / D Mover · W / Espacio Saltar · <strong className="text-slate-800">SHIFT</strong> {selectedMode === 'contrast' ? 'Cambiar fase' : 'Cambiar mundo activo'} · ✏️ Dibujar · R Reiniciar
+          A / D Mover · W / Espacio Saltar · <strong className="text-slate-800">SHIFT</strong> {selectedMode === 'contrast' ? 'Cambiar fase' : 'Elegir realidad para dibujar'} · ✏️ Dibujar · R Reiniciar
         </p>
       </footer>
 
@@ -223,11 +223,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">2.</span>
-                <span><strong>Regla de visibilidad:</strong> Los obstáculos sólidos adoptan el color del fondo y son invisibles. Los de la otra fase se ven, pero no tienen colisión.</span>
+                <span><strong>Regla de peligros:</strong> {selectedMode === 'contrast' ? 'Los peligros de la fase activa son invisibles y letales; los de la fase opuesta se ven y son intangibles.' : 'Los peligros de ambas realidades se combinan en una sola ruta mortal. Las plataformas exclusivas no bloquean el movimiento sincronizado.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">3.</span>
-                <span><strong>Tecla [SHIFT]:</strong> {selectedMode === 'contrast' ? 'Cambia entre fase clara y oscura. Si la nueva fase te encerraría dentro de geometría sólida, el cambio se bloquea.' : 'Cambia la realidad seleccionada para dibujar; el reflejo continúa moviéndose simultáneamente.'}</span>
+                <span><strong>Tecla [SHIFT]:</strong> {selectedMode === 'contrast' ? 'Cambia entre fase clara y oscura. El cambio se bloquea si la nueva fase te superpone con geometría sólida o un peligro.' : 'Cambia la realidad seleccionada para dibujar; no altera el movimiento ni detiene al reflejo.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">4.</span>
@@ -235,7 +235,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">5.</span>
-                <span><strong>Doble Salto:</strong> Pulsa salto dos veces para realizar un doble salto ágil y conquistar cualquier salto.</span>
+                <span><strong>Doble Salto:</strong> Después del salto inicial, puedes volver a saltar una vez en el aire.</span>
               </li>
             </ul>
             <div className="mt-5 text-right">
