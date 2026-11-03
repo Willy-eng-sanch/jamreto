@@ -62,7 +62,7 @@
 
 **Validación pendiente:** medir si los ciclos de las gotas permiten ventanas legibles, si existe tiempo suficiente para reaccionar y si las estrellas son alcanzables sin depender de azar o ensayo excesivo.
 
-### Página 6 — El Gran Dúo
+### Página 6 — El Reflejo Final
 
 **Función prevista:** examen final que combina desplazamiento horizontal, ascenso, peligros y dibujo.
 
