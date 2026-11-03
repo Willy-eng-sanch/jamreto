@@ -12,6 +12,7 @@ import {
   InputState,
 } from './game/physics.ts';
 import { mirrorLevelHorizontally, oppositeDimension } from './game/dimensionRules.ts';
+import { buildMirrorCollisionData, syncMirroredPlayer } from './game/mirrorMode.ts';
 import { sound } from './game/audio.ts';
 import { TitleScreen } from './components/TitleScreen.tsx';
 import { GameHud } from './components/GameHud.tsx';
@@ -569,10 +570,6 @@ export default function App() {
         } else {
           simTimeRef.current += dt;
 
-          const emptyInput: InputState = {
-            left: false, right: false, jumpPressed: false,
-            jumpHeld: false, shiftPressed: false,
-          };
           let resultBlack: ReturnType<typeof stepSimulation>;
           let resultWhite: ReturnType<typeof stepSimulation>;
 
@@ -595,32 +592,43 @@ export default function App() {
               collectedStars: [],
             };
           } else {
-            // Mirror mode retains two persistent characters and two reflected level views.
-            const isBlackActive = activeStickmanRef.current === 'BLACK';
-            const activeDimension: Dimension = isBlackActive ? 'WHITE' : 'BLACK';
-            const blackWorld = blackWorldLevelRef.current;
-            const activeWorld = isBlackActive ? level : blackWorld;
-            updateMovingPlatforms(activeWorld.platforms, dt, activeDimension);
-            updateErasers(activeWorld.erasers, dt, activeDimension);
-            updateInkDrops(activeWorld.inkDrops, activeWorld.platforms, activeWorld.height, dt, activeDimension);
+            // Mirror mode is one movement state with a perfectly synchronized reflection.
+            // Geometry from either reality constrains the shared route.
+            updateMovingPlatforms(level.platforms, dt);
+            updateErasers(level.erasers, dt);
+            updateInkDrops(level.inkDrops, level.platforms, level.height, dt);
 
-            const blackInput: InputState = isBlackActive ? inputRef.current : emptyInput;
-            const whiteInput: InputState = !isBlackActive ? inputRef.current : emptyInput;
+            const mirrorCollision = buildMirrorCollisionData(level, drawnStrokesRef.current);
             resultBlack = stepSimulation(
-              playerBlack, blackInput, level.platforms, level.spikes,
-              level.erasers, level.inkDrops, level.stars, level.goal,
-              level.width, level.height, dt, drawnStrokesRef.current, isBlackActive
+              playerBlack,
+              inputRef.current,
+              mirrorCollision.platforms,
+              mirrorCollision.spikes,
+              mirrorCollision.erasers,
+              mirrorCollision.inkDrops,
+              mirrorCollision.stars,
+              level.goal,
+              level.width,
+              level.height,
+              dt,
+              mirrorCollision.strokes
             );
-            resultWhite = stepSimulation(
-              playerWhite, whiteInput, blackWorld.platforms, blackWorld.spikes,
-              blackWorld.erasers, blackWorld.inkDrops, blackWorld.stars, blackWorld.goal,
-              blackWorld.width, blackWorld.height, dt, drawnStrokesRef.current, !isBlackActive
-            );
-            const collectedIds = new Set([...resultBlack.collectedStars, ...resultWhite.collectedStars]);
+            resultWhite = {
+              player: playerWhite,
+              didJump: false,
+              didLand: false,
+              didShift: false,
+              clearedLevel: resultBlack.clearedLevel,
+              collectedStars: resultBlack.collectedStars,
+            };
+
+            // The right-hand character is a reflection, never an independently controlled actor.
+            syncMirroredPlayer(playerBlack, playerWhite, level.width);
+            const collectedIds = new Set(resultBlack.collectedStars);
             if (collectedIds.size > 0) {
               for (const star of level.stars) if (collectedIds.has(star.id)) star.collected = true;
-              for (const star of blackWorld.stars) if (collectedIds.has(star.id)) star.collected = true;
             }
+            blackWorldLevelRef.current = mirrorLevelHorizontally(level);
           }
 
                     // Audio triggers

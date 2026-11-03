@@ -70,14 +70,14 @@ export const GameHud: React.FC<GameHudProps> = ({
             <span>
               {gameMode === 'contrast'
                 ? activeDimension === 'WHITE' ? 'CONTRASTE · FASE CLARA' : 'CONTRASTE · FASE OSCURA'
-                : isBlackStickman ? 'ESPEJO · GRAFITO / IZQUIERDA' : 'ESPEJO · TIZA / DERECHA'}
+                : isBlackStickman ? 'ESPEJO · TRAZAR EN BLANCO' : 'ESPEJO · TRAZAR EN NEGRO'}
             </span>
             <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono border bg-slate-800 border-slate-700 text-cyan-300">
               SHIFT
             </kbd>
           </button>
           <span className="text-[10px] font-mono mt-1 text-slate-300 bg-slate-900/70 px-2 py-0.5 rounded">
-            {gameMode === 'contrast' ? 'Un personaje · dos fases' : 'Dos realidades · ambos deben llegar'}
+            {gameMode === 'contrast' ? 'Un personaje · dos fases' : 'Un jugador · reflejo sincronizado'}
           </span>
         </div>
 
@@ -154,7 +154,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           [A/D] Mover · [W/Espacio] Doble Salto · [SHIFT] {gameMode === 'contrast' ? 'Alternar fase' : 'Alternar mundo/personaje'} · ✏️ <strong>Arrastra para trazar</strong>
         </span>
         <span className="hidden md:inline px-2.5 py-1 rounded font-bold text-cyan-300 bg-slate-900/80 border border-slate-800 shadow-sm">
-          {gameMode === 'contrast' ? 'Lo visible es intangible; lo invisible es sólido' : 'Dos mundos reflejados · trazo proyectado al contrario'}
+          {gameMode === 'contrast' ? 'Lo visible es intangible; lo invisible es sólido' : 'Atiende ambos lados · un solo movimiento'}
         </span>
       </div>
     </div>

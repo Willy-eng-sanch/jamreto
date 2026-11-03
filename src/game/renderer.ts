@@ -303,7 +303,7 @@ export class GameRenderer {
       ctx, whiteWorld.width, whiteWorld.height, 'WHITE', playerBlack, playerWhite,
       activeStickman === 'BLACK', whiteWorld.platforms, whiteWorld.spikes,
       whiteWorld.erasers, whiteWorld.inkDrops, whiteWorld.stars, whiteWorld.goal,
-      drawnStrokes, time
+      drawnStrokes, time, true, true
     );
     ctx.restore();
 
@@ -317,7 +317,7 @@ export class GameRenderer {
       ctx, blackWorld.width, blackWorld.height, 'BLACK', playerWhite, playerBlack,
       activeStickman === 'WHITE', blackWorld.platforms, blackWorld.spikes,
       blackWorld.erasers, blackWorld.inkDrops, blackWorld.stars, blackWorld.goal,
-      drawnStrokes, time
+      drawnStrokes, time, true, true
     );
     ctx.restore();
 

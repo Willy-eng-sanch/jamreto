@@ -134,7 +134,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             className={`text-left p-3 rounded border-2 transition-all ${selectedMode === 'mirror' ? 'border-slate-900 bg-slate-900 text-white shadow-md' : 'border-slate-300 bg-white/80 text-slate-700 hover:border-slate-500'}`}
           >
             <span className="block font-mono text-xs font-black tracking-wider">MODO ESPEJO</span>
-            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'mirror' ? 'text-slate-200' : 'text-slate-500'}`}>Dos realidades reflejadas visibles. SHIFT alterna el control y la dimensión de dibujo.</span>
+            <span className={`block text-[11px] mt-1 leading-relaxed ${selectedMode === 'mirror' ? 'text-slate-200' : 'text-slate-500'}`}>Un jugador y su reflejo se mueven sincronizados. Observa ambas realidades; SHIFT cambia dónde puedes dibujar.</span>
           </button>
         </div>
 
@@ -219,7 +219,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <ul className="text-xs space-y-2.5 text-slate-700 leading-relaxed">
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">1.</span>
-                <span><strong>{selectedMode === 'contrast' ? 'Un único escenario:' : 'Pantalla dividida:'}</strong> {selectedMode === 'contrast' ? 'El mismo nivel alterna entre fase clara y oscura. El personaje cambia de color para contrastar con el fondo.' : 'Las dos realidades se muestran a la vez, reflejadas horizontalmente, con un personaje en cada una.'}</span>
+                <span><strong>{selectedMode === 'contrast' ? 'Un único escenario:' : 'Pantalla dividida:'}</strong> {selectedMode === 'contrast' ? 'El mismo nivel alterna entre fase clara y oscura. El personaje cambia de color para contrastar con el fondo.' : 'Las dos realidades se muestran a la vez, reflejadas horizontalmente. Un único jugador y su reflejo hacen los mismos movimientos.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">2.</span>
@@ -227,7 +227,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">3.</span>
-                <span><strong>Tecla [SHIFT]:</strong> {selectedMode === 'contrast' ? 'Cambia entre fase clara y oscura. Si la nueva fase te encerraría dentro de geometría sólida, el cambio se bloquea.' : 'Alterna el personaje y el mundo activo desde el que puedes trazar.'}</span>
+                <span><strong>Tecla [SHIFT]:</strong> {selectedMode === 'contrast' ? 'Cambia entre fase clara y oscura. Si la nueva fase te encerraría dentro de geometría sólida, el cambio se bloquea.' : 'Cambia la realidad seleccionada para dibujar; el reflejo continúa moviéndose simultáneamente.'}</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-slate-900">4.</span>
