@@ -1,6 +1,6 @@
 {
-  "name": "SHIFT: Trazo & Vacío",
-  "description": "Plataformas de puzles 2D sobre papel cuadriculado escolar con mecánicas asimétricas de cambio dimensional instantáneo entre grafito y vacío.",
+  "name": "Polar Shift: Trazo & Vacío",
+  "description": "Plataformas y puzles 2D de doble realidad: alterna entre fases de luz y oscuridad en Contraste o guía un reflejo sincronizado en Espejo. Dibuja puentes con tinta limitada.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
