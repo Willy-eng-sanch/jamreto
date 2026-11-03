@@ -64,9 +64,8 @@ export default function App() {
   const currentLevelRef = useRef<LevelData>(JSON.parse(JSON.stringify(LEVELS[0])));
   const blackWorldLevelRef = useRef<LevelData>(mirrorLevelHorizontally(LEVELS[0]));
 
-  // The two stickmen:
-  // playerBlackRef: lives in WHITE world (Light mode, black stickman)
-  // playerWhiteRef: lives in BLACK world (Dark mode, white stickman)
+  // Contrast uses playerBlackRef as its single character.
+  // Mirror mode keeps playerWhiteRef as the synchronized horizontal reflection.
   const playerBlackRef = useRef<PlayerState>(createDefaultPlayer(80, 380, 'WHITE'));
   const playerWhiteRef = useRef<PlayerState>(createDefaultPlayer(80, 380, 'BLACK'));
 
@@ -124,7 +123,6 @@ export default function App() {
     setContrastDimension(lvlCopy.spawn.initialDimension);
     playerWhiteRef.current = createDefaultPlayer(blackWorld.spawn.x, blackWorld.spawn.y, 'BLACK');
     playerWhiteRef.current.facing = 'left';
-    playerWhiteRef.current.facing = 'left';
 
     drawnStrokesRef.current = [];
     currentDrawingRef.current = null;
@@ -175,7 +173,7 @@ export default function App() {
     };
   }, [currentLevelIdx, loadLevel]);
 
-  // SHIFT changes the active phase in Contrast, or the controlled mirror-world in Mirror.
+  // SHIFT changes the active phase in Contrast, or the selected drawing reality in Mirror.
   const triggerDimensionShift = useCallback(() => {
     if (gameStateRef.current !== 'playing') return;
 

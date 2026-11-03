@@ -72,6 +72,26 @@ test('BLACK-side traces are projected back into the canonical shared route', () 
   assert.equal(data.strokes[0].mirrorToTarget, true);
 });
 
+test('a BLACK-side drawing supports the mirrored player at its reflected coordinates', () => {
+  const stroke: DrawnStroke = {
+    id: 'black-side-bridge',
+    points: [{ x: 350, y: 180 }, { x: 450, y: 180 }],
+    sourceDimension: 'BLACK', targetDimension: 'WHITE', mirrorToTarget: true,
+    color: '#fff', createdAt: 1,
+  };
+  const level = makeLevel();
+  const data = buildMirrorCollisionData(level, [stroke]);
+  const player = createDefaultPlayer(90, 138, 'WHITE');
+  player.vy = 50;
+  const result = stepSimulation(
+    player, { left: false, right: false, jumpPressed: false, jumpHeld: false, shiftPressed: false },
+    [], [], [], [], [], { id: 'far-goal', x: 480, y: 0, w: 10, h: 10 },
+    level.width, level.height, 0.016, data.strokes
+  );
+  assert.equal(result.player.isGrounded, true);
+  assert.equal(result.player.y, 140);
+});
+
 test('a hazard from either reality is included in shared collision physics', () => {
   const level = makeLevel();
   const data = buildMirrorCollisionData(level, []);

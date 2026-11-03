@@ -64,7 +64,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             onClick={onShift}
             tabIndex={-1}
             className="pointer-events-auto flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-xs font-bold border-2 transition-all cursor-pointer shadow-lg active:scale-95 bg-slate-900 text-white border-cyan-400 hover:bg-slate-800"
-            title={gameMode === 'contrast' ? 'Alternar fase clara/oscura [SHIFT o Z]' : 'Cambiar mundo activo y personaje [SHIFT o Z]'}
+            title={gameMode === 'contrast' ? 'Alternar fase clara/oscura [SHIFT o Z]' : 'Cambiar la realidad seleccionada para dibujar [SHIFT o Z]'}
           >
             <ArrowLeftRight className="w-3.5 h-3.5 text-cyan-400" />
             <span>
