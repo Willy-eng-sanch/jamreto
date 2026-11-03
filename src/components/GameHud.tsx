@@ -12,6 +12,7 @@ interface GameHudProps {
   totalStars: number;
   timeSeconds: number;
   strokesCount: number;
+  inkLeft: number;
   isMuted: boolean;
   onToggleMute: () => void;
   onRestart: () => void;
@@ -30,6 +31,7 @@ export const GameHud: React.FC<GameHudProps> = ({
   totalStars,
   timeSeconds,
   strokesCount,
+  inkLeft,
   isMuted,
   onToggleMute,
   onRestart,
@@ -83,6 +85,24 @@ export const GameHud: React.FC<GameHudProps> = ({
 
         {/* Right: Stars, Drawing Tools, Time, and Utility Buttons */}
         <div className="flex items-center gap-2">
+          {/* Shared ink reserve: every world-space unit drawn consumes ink. */}
+          <div
+            className="flex items-center gap-2 bg-slate-900/90 text-white px-2.5 py-1 rounded border border-slate-700 font-mono text-[11px] font-bold shadow-sm"
+            title="La tinta se consume según la longitud del trazo. Cada estrella recupera 30 puntos."
+            aria-label={`Tinta disponible: ${Math.round(inkLeft)} de 100`}
+          >
+            <span className="text-slate-300">TINTA</span>
+            <div className="h-1.5 w-14 overflow-hidden rounded-full bg-slate-700">
+              <div
+                className={`h-full transition-all ${inkLeft <= 20 ? 'bg-red-400' : 'bg-cyan-400'}`}
+                style={{ width: `${Math.max(0, Math.min(100, inkLeft))}%` }}
+              />
+            </div>
+            <span className={inkLeft <= 20 ? 'text-red-300' : 'text-cyan-300'}>
+              {Math.round(inkLeft)}%
+            </span>
+          </div>
+
           {/* Drawing info & Clear button */}
           <div className="flex items-center gap-1.5 bg-slate-900/90 text-white px-2.5 py-1 rounded border border-slate-700 font-mono text-xs font-bold shadow-sm">
             <PenTool className="w-3.5 h-3.5 text-cyan-400" />
@@ -151,7 +171,7 @@ export const GameHud: React.FC<GameHudProps> = ({
       {/* Bottom Hint Banner */}
       <div className="flex items-center justify-between font-mono text-[11px] pb-1">
         <span className="px-2.5 py-1 rounded text-slate-300 bg-slate-900/80 border border-slate-800 shadow-sm">
-          [A/D] Mover · [W/Espacio] Doble Salto · [SHIFT] {gameMode === 'contrast' ? 'Alternar fase' : 'Alternar mundo/personaje'} · ✏️ <strong>Arrastra para trazar</strong>
+          [A/D] Mover · [W/Espacio] Doble Salto · [SHIFT] {gameMode === 'contrast' ? 'Alternar fase' : 'Elegir realidad'} · <strong>Dibujar consume tinta</strong> · Las estrellas recargan
         </span>
         <span className="hidden md:inline px-2.5 py-1 rounded font-bold text-cyan-300 bg-slate-900/80 border border-slate-800 shadow-sm">
           {gameMode === 'contrast' ? 'Lo visible es intangible; lo invisible es sólido' : 'Atiende ambos lados · un solo movimiento'}
