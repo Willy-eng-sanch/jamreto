@@ -27,6 +27,8 @@ Los nombres `WHITE` y `BLACK` son identificadores técnicos de las realidades cl
 - Solo las plataformas `BOTH` pueden bloquear el movimiento compartido. Las plataformas o paredes exclusivas de WHITE o BLACK no pueden actuar como barreras en este modo, porque separarían las trayectorias.
 - `SHIFT` cambia la realidad seleccionada desde la que se puede dibujar. No cambia el movimiento, no intercambia el control y no detiene al reflejo.
 - Un trazo se refleja horizontalmente hacia la otra vista. Sigue siendo visible e intangible en su realidad de origen e invisible y sólido en la opuesta.
+- La proyección es parte de la ruta compartida, no una segunda física: un puente dibujado en WHITE aparece reflejado y sostiene en BLACK; uno dibujado en BLACK aparece reflejado y sostiene en WHITE. Así se puede reparar un hueco visible en cualquiera de las vistas dibujando en la vista opuesta. Si falta el soporte proyectado, ambos personajes caen por el mismo movimiento sincronizado.
+- Las coordenadas del trazo se convierten al sistema canónico de la ruta: un trazo del panel izquierdo conserva X y uno del panel derecho se refleja de vuelta antes de resolver colisiones.
 - Los coleccionables se comparten entre las dos vistas: recoger uno actualiza el estado común.
 
 ## 4. Reglas de diseño de niveles
@@ -53,7 +55,9 @@ Los nombres `WHITE` y `BLACK` son identificadores técnicos de las realidades cl
 - Comprobar que las plataformas exclusivas no bloquean el recorrido compartido.
 - Comprobar que los peligros de ambas realidades son letales.
 - Comprobar que `SHIFT` cambia la realidad de dibujo, pero no el movimiento.
-- Comprobar que un trazo hecho desde la vista derecha se proyecta horizontalmente hacia la ruta compartida.
+- Comprobar que un trazo hecho desde la vista izquierda conserva X y que uno hecho desde la derecha se refleja hacia la ruta compartida.
+- Comprobar que un puente dibujado desde la vista opuesta sostiene al personaje al cruzar un hueco y que, sin el puente, ambos reflejos caen juntos.
+- Comprobar que `SHIFT` solo cambia la realidad de dibujo y no modifica la velocidad ni ningún estado físico del jugador.
 
 ### Calidad de nivel
 - Ejecutar pruebas de integridad de datos y de solapamiento entre coleccionables y peligros.
