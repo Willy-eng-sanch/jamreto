@@ -68,6 +68,26 @@ test('stroke projection reflects coordinates so a left-to-right drawing becomes 
   assert.deepEqual(mirrorPointHorizontally({ x: 0, y: 12 }, 1000), { x: 1000, y: 12 });
 });
 
+test('a stroke does not support the player in its source world', () => {
+  const stroke: DrawnStroke = {
+    id: 'source-is-visual-only',
+    points: [{ x: 50, y: 200 }, { x: 250, y: 200 }],
+    sourceDimension: 'WHITE',
+    targetDimension: 'BLACK',
+    color: '#0f172a',
+    createdAt: 1,
+  };
+  const player = createMockPlayer({
+    x: 100, y: 158, vy: 50, isGrounded: false, currentDimension: 'WHITE',
+  });
+  const result = stepSimulation(
+    player, emptyInput, [], [], [], [], [],
+    { id: 'far-goal', x: 900, y: 900, w: 30, h: 30 },
+    1000, 1000, 0.016, [stroke]
+  );
+  assert.equal(result.player.isGrounded, false);
+});
+
 test('right-hand world mirrors spawn, central goal, platforms, hazards and moving direction', () => {
   const level: LevelData = {
     id: 1, title: 'Test', subtitle: '', description: '',
