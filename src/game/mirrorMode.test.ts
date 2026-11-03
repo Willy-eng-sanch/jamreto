@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildMirrorCollisionData, syncMirroredPlayer } from './mirrorMode.ts';
+import { buildMirrorCollisionData, getNextActiveStickman, syncMirroredPlayer } from './mirrorMode.ts';
 import { createDefaultPlayer, stepSimulation } from './physics.ts';
 import type { DrawnStroke, LevelData } from './types.ts';
 
@@ -120,4 +120,49 @@ test('a hazard from either reality is included in shared collision physics', () 
   );
   assert.equal(result.player.isDead, true);
   assert.equal(result.player.deathReason, 'Púas de Garabato');
+});
+
+test('a WHITE-side drawing supports the shared route without reflecting its canonical X coordinates', () => {
+  const stroke: DrawnStroke = {
+    id: 'white-side-bridge',
+    points: [{ x: 50, y: 180 }, { x: 150, y: 180 }],
+    sourceDimension: 'WHITE', targetDimension: 'BLACK', mirrorToTarget: false,
+    color: '#111', createdAt: 1,
+  };
+  const level = makeLevel();
+  const data = buildMirrorCollisionData(level, [stroke]);
+  const player = createDefaultPlayer(90, 138, 'WHITE');
+  player.vy = 50;
+  const result = stepSimulation(
+    player, { left: false, right: false, jumpPressed: false, jumpHeld: false, shiftPressed: false },
+    [], [], [], [], [], { id: 'far-goal', x: 480, y: 0, w: 10, h: 10 },
+    level.width, level.height, 0.016, data.strokes
+  );
+  assert.equal(result.player.isGrounded, true);
+  assert.equal(result.player.y, 140);
+});
+
+test('a gap without a projected bridge leaves the shared player unsupported', () => {
+  const level = makeLevel();
+  const data = buildMirrorCollisionData(level, []);
+  const player = createDefaultPlayer(90, 138, 'WHITE');
+  player.vy = 50;
+  const result = stepSimulation(
+    player, { left: false, right: false, jumpPressed: false, jumpHeld: false, shiftPressed: false },
+    [], [], [], [], [], { id: 'far-goal', x: 480, y: 0, w: 10, h: 10 },
+    level.width, level.height, 0.016, data.strokes
+  );
+  assert.equal(result.player.isGrounded, false);
+  assert.ok(result.player.y > 138);
+});
+
+test('SHIFT toggles the selected drawing reality without mutating movement state', () => {
+  const source = createDefaultPlayer(120, 90, 'WHITE');
+  source.vx = 160;
+  source.vy = -220;
+  const before = { ...source };
+
+  assert.equal(getNextActiveStickman('BLACK'), 'WHITE');
+  assert.equal(getNextActiveStickman('WHITE'), 'BLACK');
+  assert.deepEqual(source, before);
 });
